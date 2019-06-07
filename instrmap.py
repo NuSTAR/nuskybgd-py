@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 import os
 import datetime
 import astropy.io.fits as pf
@@ -186,6 +187,25 @@ def apply_badpix(instrmap, bpixfile, pixmap, detnum):
 
     return output
 
+
+if __name__ == '__main__':
+    # Inputs
+    # FITS file(s) with BADPIX extensions
+    bpixfiles = ['bp.fits', '_cl.evt', 'usrbp.fits']
+    # Output will be named outprefix_A.fits and/or outprefix_B.fits
+    outprefix = 'test'
+
+    bpixexts = get_badpix_exts(bpixfiles)
+    ab = 'A'   # Get this from INSTRUME keyword
+    instrmap, header = get_caldb_instrmap(ab)
+    pixmap, detnum = get_caldb_pixpos(ab)
+
+    caldb = os.environ['CALDB']
+    bpixpath = ('%s/data/nustar/fpm/bcf/badpix/'
+                'nu%sbadpix20100101v002.fits') % (caldb, ab)
+
+    pf.HDUList(pf.PrimaryHDU(instrmap, header=header)).writeto(
+    outdir + 'newinstrmap' + ab + '.fits')
 
 
 """
