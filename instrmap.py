@@ -133,7 +133,7 @@ def get_badpix_exts(bpixfiles):
             try:
                 ehdr = ext.header
                 if not (ehdr['XTENSION'] == 'BINTABLE' and
-                        'BADPIX' not in ehdr['EXTNAME']):
+                        'BADPIX' in ehdr['EXTNAME']):
                     continue
                 if ehdr['DETNAM'] in DETNAM:
                     bpixlist[ab].append(ext)
