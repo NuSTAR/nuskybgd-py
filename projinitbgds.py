@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+Project the instrument map onto sky coordinates to get the projected detector
+mask images and background aperture images.
+
 Usage: projinitbgds refimg=flux.fits out=output.fits mod=[A,B] det=[1,2,3,4] \\
            chipmap=chipmap.fits aspect=aspect.fits
 
@@ -7,6 +10,10 @@ Example:
 
 projinitbgds refimg=imA4to25keV.fits out=bgdapA.fits mod=A det=1234 \\
     chipmap=newinstrmapA.fits aspect=projobsA.fits
+
+The output file bgdapA.fits has the background aperture image in sky
+coordinates. A series of files showing the projected detector masks for each
+detector specified by det= will also be created, named det[0-3]Aim.fits.
 """
 import sys
 import os
@@ -25,23 +32,39 @@ def get_det_mask(instmap_mask_file, detnum):
 
     Usage: get_det_mask(instmap_mask_file, detnum)
 
+    Output: mask[det, y, x] is a 3D numpy array, in which mask[i] are detector
+    masks for each detector.
+
     TODO: add input validation.
     """
     if isinstance(detnum, int):
         detnum = [detnum]
 
     mskfile = pf.open(instmap_mask_file)
-    mask = np.zeros(mskfile['INSTRMAP'].data.shape, dtype=np.float64)
-    for i in detnum:
-        mask[np.where(mskfile['INSTRMAP'].data == i)] = 1.
+    shape = mskfile['INSTRMAP'].data.shape
+    mask = np.zeros((len(detnum), shape[0], shape[1]), dtype=np.float64)
+    for i in np.arange(len(detnum)):
+        inx = np.where(mskfile['INSTRMAP'].data == detnum[i])
+        mask[i, inx[0], inx[1]] = 1.
     return mask
 
 
 def get_aspect_hist_image(asphistimgfile):
-    return pf.open(asphistimgfile)[0].data
+    """
+    Return an image of the aspect histogram and x and y offsets if any (from
+    the X_OFF and Y_OFF keywords in header).
+    """
+    fh = pf.open(asphistimgfile)
+    # Check if the image has x, y offsets
+    if ('X_OFF' in fh[0].header and 'Y_OFF' in fh[0].header):
+        x_off = fh[0].header['X_OFF']
+        y_off = fh[0].header['Y_OFF']
+    else:
+        x_off, y_off = 0, 0
+    return fh[0].data, x_off, y_off
 
 
-def get_aspect_hist_peak(asphistimg):
+def get_aspect_hist_peak(asphistimg, xoff=0, yoff=0):
     """
     Return the (x, y) array indices of the maximum in the aspect histogram
     image.
@@ -49,7 +72,8 @@ def get_aspect_hist_peak(asphistimg):
     TODO: what to do if there are two such pixels
     """
     peak = np.argmax(asphistimg)
-    return (peak % asphistimg.shape[1], peak // asphistimg.shape[1])
+    return (peak % asphistimg.shape[1] + xoff,
+            peak // asphistimg.shape[1] + yoff)
 
 
 def get_aperture_image(detector):
@@ -267,20 +291,29 @@ if __name__ == '__main__':
     if not os.path.exists(NUSKYBGD_DB):
         print('Error: NUSKYBGD_DB path does not exists (%s)' % NUSKYBGD_DB)
 
-    if os.path.exists(args['out']):
-        print('Output file exists.')
-        sys.exit(1)
+    if args['out'][0] != '!':
+        halt = False
+        if os.path.exists(args['out']):
+            print('Output file %s exists.' % args['out'])
+            halt = True
+        for idet in np.arange(4):
+            _ = 'det%d%sim.fits' % (idet, args['mod'])
+            if os.path.exists(_):
+                print('Output file %s exists.' % _)
+                halt = True
+        if halt:
+            sys.exit(1)
 
     print('Using auxiliary data in %s' % NUSKYBGD_DB)
 
     detmask = get_det_mask(args['chipmap'], det_input)
     apim = get_aperture_image(args['mod'])
-    posim = get_aspect_hist_image(args['aspect'])
+    posim, pos_xoff, pos_yoff = get_aspect_hist_image(args['aspect'])
     totalexp = np.sum(posim)
 
     arot = calc_pa_to_arot(pa)
 
-    asppeakx, asppeaky = get_aspect_hist_peak(posim)
+    asppeakx, asppeaky = get_aspect_hist_peak(posim, pos_xoff, pos_yoff)
 
     xgrid, ygrid = np.meshgrid(np.arange(1000),
                                np.arange(1000), indexing='xy')
@@ -293,38 +326,38 @@ if __name__ == '__main__':
     nudge = [nudge[0] * np.cos(-arot) - nudge[1] * np.sin(-arot),
              nudge[0] * np.sin(-arot) + nudge[1] * np.cos(-arot)]
 
-    imval = detmask / totalexp
-    apval = apim * imval
+    imval = detmask / totalexp  # Normalize it, since convolving with posim
+    apval = apim / totalexp        # multiplies it by sum(posim)
 
     refimap = np.zeros((1000, 1000), dtype=np.float64)
-    #refimi = np.zeros((1000, 1000), dtype=np.float64)
+    refimi = np.zeros((len(det_input), 1000, 1000), dtype=np.float64)
 
     print('Rotating instrument map...')
     for i in np.arange(1000):
         for j in np.arange(1000):
             detx = detxa[j, i]
             dety = detya[j, i]
-            if ((0 <= detx < 360) and (0 <= dety < 360) and
-                (detmask[dety, detx] > 0)):
-                refimap[j, i] = apval[dety, detx]
-                #refimi[j, i] = imval[dety, detx]
-
+            for idet_input in range(len(det_input)):
+                if ((0 <= detx < 360) and (0 <= dety < 360) and
+                        (detmask[idet_input, dety, detx] > 0)):
+                    refimap[j, i] = apval[dety, detx]
+                    refimi[idet_input, j, i] = imval[idet_input, dety, detx]
 
     bgdimap = np.zeros((1000, 1000), dtype=np.float64)
-    #bgdimi = np.zeros((1000, 1000), dtype=np.float64)
+    bgdimi = np.zeros((len(det_input), 1000, 1000), dtype=np.float64)
 
     inx = np.where(posim > 0)
     progress_total = len(inx[0])
     progress = 0
     print('Convolving instrument map with aspect solution...')
     for x, y in zip(inx[1], inx[0]):
-        #print(x, y)
         bgdimap += posim[y, x] * transform_image(
-            refimap, x - asppeakx - nudge[0],
-            y - asppeaky - nudge[1], 0)
-        #bgdimi += posim[y, x] * transform_image(
-        #    refimi, x - asppeakx - nudge[0],
-        #    y - asppeaky - nudge[1], 0)
+            refimap, x + pos_xoff - asppeakx - nudge[0],
+            y + pos_yoff - asppeaky - nudge[1], 0)
+        for idet_input in range(len(det_input)):
+            bgdimi[idet_input] += posim[y, x] * transform_image(
+                refimi[idet_input], x + pos_xoff - asppeakx - nudge[0],
+                y + pos_yoff - asppeaky - nudge[1], 0)
         progress += 1
         sys.stdout.write('\r %d/%d' % (progress, progress_total))
         sys.stdout.flush()
@@ -333,6 +366,13 @@ if __name__ == '__main__':
 
     outfile = pf.HDUList([pf.PrimaryHDU(bgdimap, header=hdr)])
 
-    outfile.writeto(args['out'])
+    # Write background aperture image
+    outfile.writeto(args['out'], overwrite=True)
+
+    # Write detector mask images
+    for idet_input in range(len(det_input)):
+        pf.HDUList([pf.PrimaryHDU(bgdimi[idet_input], header=hdr)]).writeto(
+            'det%d%sim.fits' % (det_input[idet_input] - 1, args['mod']),
+            overwrite=True)  # For det number, input 1-4 -> output 0-3
 
     sys.exit(0)
