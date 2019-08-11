@@ -1,9 +1,57 @@
 #!/usr/bin/env python3
 import os
+import json
 import re
+import numpy as np
+import xspec
+# !!Load xspec before astropy!! When testing using latest xspec (6.26.1) and
+# astropy (3.2.1), xspec has cfitsio with SONAME 8, and loading astropy before
+# it throws an error when loading spectrum file, stating that the loaded
+# cfitsio library has SONAME 7. Is it astropy that's been compiled with an
+# older version of cfitsio, causing a problem if the older library loads
+# first? Because the only library in the rpath is heasoft's latest cfitsio
+# library.
+import astropy.io.fits as pf
+import pyregion
 
 
 # Input params
+# os.environ['NUSKYBGD_AUXIL']
+auxildir = '/Users/qw/astro/nustar/nuskybgd-idl/auxil'
+ratios = json.loads(open('%s/ratios.json' % auxildir).read())
+
+# In [45]: ratiosA.keys()
+# Out[45]: dict_keys(['name', 'comment', 'models'])
+
+# bgfiles and regfiles must have the same ordering
+bgfiles = ['bgd1A_sr_g30.pha', 'bgd1B_sr_g30.pha',
+           'bgd2A_sr_g30.pha', 'bgd2B_sr_g30.pha',
+           'bgd3A_sr_g30.pha', 'bgd3B_sr_g30.pha']
+
+regfiles = ['bgd1A.reg', 'bgd1B.reg',
+            'bgd2A.reg', 'bgd2B.reg',
+            'bgd3A.reg', 'bgd3B.reg']
+
+refimgf = 'bgdapA.fits'
+
+bgdapim = {}
+bgdapim['A'] = pf.open('bgdapA.fits')[0].data
+bgdapim['B'] = pf.open('bgdapB.fits')[0].data
+
+bgddetim = {}
+bgddetim['A'] = [
+    pf.open('det0Aim.fits')[0].data,
+    pf.open('det1Aim.fits')[0].data,
+    pf.open('det2Aim.fits')[0].data,
+    pf.open('det3Aim.fits')[0].data
+]
+bgddetim['B'] = [
+    pf.open('det0Bim.fits')[0].data,
+    pf.open('det1Bim.fits')[0].data,
+    pf.open('det2Bim.fits')[0].data,
+    pf.open('det3Bim.fits')[0].data
+]
+
 
 MSG_WARN_1 = """
 WARNING: NUSKYBGD_FITAB is assuming you have supplied corresponding
@@ -12,107 +60,6 @@ WARNING: NUSKYBGD_FITAB is assuming you have supplied corresponding
    !     where bgd1A.reg and bgd1B.reg, etc., cover nearly the same
    !     area on the sky and all the A spectra/regions are listed first.
 """
-
-
-def nuskybgd_fitab(indir, obsid, bgdreg, specdir, specname, ab,
-                   bgddir=None, header,
-                   clobber=clobber, pa=pa, paramfile=paramfile,
-                   nocheck=nocheck, fixfcxb=fixfcxb, grxe=None, iisrc=None,
-                   fixap=fixap, nofit=nofit, tieap=tieap,
-                   srcarr=None, srcdir=None, runxcm=runxcm,
-                   fix_line_ratios=fix_line_ratios, no_solar=no_solar):
-
-    absave = ab
-
-    if srcarr is None:
-        srcarr = [0] * len(bgdreg)
-
-    if srcdir is None:
-        srcdir = ''
-
-    auxildir = os.environ['NUSKYBGD_AUXIL'] + '/'
-    caldbdir = os.environ['CALDB'] + '/'
-
-    dir_ = None
-    cldir = []
-    clspecdir = []
-    clsrcdir = None
-
-    for i in range(len(indir)):
-        tdir = indir[i]
-        if tdir[-1] != '/':
-            tdir += '/'
-
-        cldir.append(tdir + obsid[i] + '/event_cl/')
-        clspecdir.append(tdir + obsid[i] + '/event_cl/' + specdir + '/')
-        clsrcdir.append(tdir + obsid[i] + '/event_cl/' + srcdir + '/')
-
-        if bgddir is None:
-            dir_.append(cldir[i])
-        else:
-            dir_.append(cldir[i] + bgddir + '/')
-            if not os.path.exists(dir[i]):
-                os.makedirs(dir[i])  # Makes parent dirs if needed
-
-    if grxe is None:
-        grxe = 0
-
-    if iisrc is None:
-        iisrc = [0] * len(bgdreg)
-
-    if not isinstance(ab, str):
-        raise TypeError('Input ab must be a string.')
-
-    iidir = None
-
-    if ab.lower() == 'ab':
-        if len(bgdreg) % (2 * len(dir)) != 0:
-            print('Error: bgdreg is not multiple of 2 * dir, stopping')
-            sys.exit(1)
-
-        abarr = (['A'] * len(bgdreg) / 2 / len(dir) +
-                 ['B'] * len(bgdreg) / 2 / len(dir)) * len(dir)
-
-        for i in range(len(dir)):
-            iidir.append([i] * (len(bgdreg) / len(dir)))
-
-        print(MSG_WARN_1)
-
-        if len(bgdreg) % 2 != 0 or len(specname) % 2 != 0:
-            print('Error: Odd number of inputs in bgdreg or specname')
-            sys.exit(1)
-
-    elif ab.lower() in ('a', 'b'):
-        abarr = [ab] * len(bgdreg)
-
-        for i in range(len(dir)):
-            iidir.append([i] * (len(bgdreg) / len(dir)))
-
-    else:
-        print('Error: FPM input must be A, B, or AB')
-        sys.exit(1)
-
-    xcmfile = clspecdir[0] + specdir + '.xcm'
-
-    output = []
-
-    tb_A = np.loadtxt(auxildir + 'ratiosA.dat')
-
-    # 7 columns
-    aeline, awidth, af0, af1, af2, af3 = (
-        tb_A[:, 0], tb_A[:, 1], tb_A[:, 2], tb_A[:, 3], tb_A[:, 4], tb_A[:, 5])
-
-    nlines = len(aeline) - 2
-
-    eline = np.zeros((nlines, 2), dtype=np.float32)
-    width = np.zeros((nlines, 2), dtype=np.float32)
-    ifactors = np.zeros((len(aeline), 4, 2), dtype=np.float32)
-    index1 = np.zeros((2, 2), dtype=np.float32)
-    index2 = np.zeros((2, 2), dtype=np.float32)
-    ebreak = np.zeros((2, 2), dtype=np.float32)
-
-    for iab in ['A', 'B']:
-        tb = np.loadtxt('%sratios%s.dat' % (auxildir, iab))
 
 
 def read_model_table(fpm):
@@ -146,12 +93,6 @@ def read_model_template(fpm):
         print(m['formula'])
 
 
-import numpy as np
-import json
-import astropy.io.fits as pf
-import xspec
-
-
 def fpm_parse(keyword):
     if keyword not in ('FPMA', 'FPMB'):
         return False
@@ -162,54 +103,31 @@ def fpm_parse(keyword):
 def mask_from_region(regfile, refimg):
     """
     Create a pixel mask for regfile based on the image WCS info in refimg.
+
+    Uses the pyregion module. Please keep to using circle, box, and ellipse
+    shapes in DS9, fk5 format to avoid unexpected behavior.
     """
+    fh = pf.open(refimg)
+    reg = pyregion.open(regfile)
+    mask = reg.get_mask(hdu=fh[0])
+    return mask
+
+
+def nuskybgd_fitab(indir, obsid, bgdreg, specdir, specname, ab,
+                   bgddir=None, header,
+                   clobber=clobber, pa=pa, paramfile=paramfile,
+                   nocheck=nocheck, fixfcxb=fixfcxb, grxe=None, iisrc=None,
+                   fixap=fixap, nofit=nofit, tieap=tieap,
+                   srcarr=None, srcdir=None, runxcm=runxcm,
+                   fix_line_ratios=fix_line_ratios, no_solar=no_solar):
     pass
 
 
-# os.environ['NUSKYBGD_AUXIL']
-auxildir = '/Users/qw/astro/nustar/nuskybgd-idl/auxil'
-
-
-ratios = json.loads(open('%s/ratios.json' % auxildir).read())
-
-# In [45]: ratiosA.keys()
-# Out[45]: dict_keys(['name', 'comment', 'models'])
-
-
-# bgfiles and regfiles must have the same ordering
-bgfiles = ['bgd1A_sr_g30.pha', 'bgd1B_sr_g30.pha',
-           'bgd2A_sr_g30.pha', 'bgd2B_sr_g30.pha',
-           'bgd3A_sr_g30.pha', 'bgd3B_sr_g30.pha']
-
-regfiles = ['bgd1A.reg', 'bgd1B.reg',
-            'bgd2A.reg', 'bgd2B.reg',
-            'bgd3A.reg', 'bgd3B.reg']
-
-
-bgdapim = {}
-bgdapim['A'] = pf.open('bgdapA.fits')[0].data
-bgdapim['B'] = pf.open('bgdapB.fits')[0].data
-
-bgddetim = {}
-bgddetim['A'] = [
-    pf.open('det0Aim.fits')[0].data,
-    pf.open('det1Aim.fits')[0].data,
-    pf.open('det2Aim.fits')[0].data,
-    pf.open('det3Aim.fits')[0].data
-]
-bgddetim['B'] = [
-    pf.open('det0Bim.fits')[0].data,
-    pf.open('det1Bim.fits')[0].data,
-    pf.open('det2Bim.fits')[0].data,
-    pf.open('det3Bim.fits')[0].data
-]
-
-
 spectra = []
-
 # Load each spectrum as a new data group
 for i in range(len(bgfiles)):
     spectra.append(xspec.AllData('{num}:{num} {file}'.format(
+        prefix=prefix,
         num=i + 1,
         file=bgfiles[i])))
 
@@ -238,7 +156,6 @@ for i in range(xspec.AllData.nSpectra):
         print(Exception)
         print('Spectrum %s does not have the INSTRUME keyword.'
               % spec.fileName)
-
 
 # Specify the RMF and ARF files for the different model sources
 for i in range(xspec.AllData.nSpectra):
@@ -269,43 +186,12 @@ for i in range(xspec.AllData.nSpectra):
     spec = xspec.AllData(i + 1)
     fpm = fpm_parse(spec.fileinfo('INSTRUME'))
 
-    regmask = mask_from_region(regfiles[i])
+    regmask = mask_from_region(regfiles[i], refimgf)
 
     detnpix = [np.sum(regmask * detim) for detim in bgddetim[fpm]]
     bgddetimsum.append(detnpix)
 
     bgdapimwt.append(np.sum(regmask * bgdapim[fpm]))
-
-
-# Load models
-
-# Show model 'apbgd' for data group 1
-# xspec.AllModels(1, 'apbgd').show()
-# ========================================================================
-# Model apbgd:cutoffpl<1> Source No.: 2   Active/On
-# Model Model Component  Parameter  Unit     Value
-#  par  comp
-#                            Data group: 1
-#    1    1   cutoffpl   PhoIndex            1.00000      +/-  0.0
-#    2    1   cutoffpl   HighECut   keV      15.0000      +/-  0.0
-#    3    1   cutoffpl   norm                1.00000      +/-  0.0
-# ________________________________________________________________________
-
-# Get values array for parameter (3) norm of that model
-# xspec.AllModels(1, 'apbgd')(3).values
-# [1.0, 0.01, 0.0, 0.0, 1e+20, 1e+24]
-
-# Toggle freezing parameters
-# xspec.AllModels(1, 'apbgd')(3).frozen = True
-
-# Link parameters (view)
-# xspec.AllModels(3, 'apbgd')(3).link
-# '= apbgd:p3'
-# This is linked to the norm of the first data group model
-
-# Set (omit the '=')
-# xspec.AllModels(3, 'apbgd')(3).link = 'apbgd:p6'
-# This is now linked to the norm of the second data group model
 
 
 """
@@ -338,11 +224,13 @@ for i in range(xspec.AllData.nSpectra):
     if i == refspec['A'] or i == refspec['B']:
         m.cutoffpl.PhoIndex.values = mod_apbgd['cutoffpl'][fpm]['phoindex']
         m.cutoffpl.HighECut.values = mod_apbgd['cutoffpl'][fpm]['highecut']
+        m.cutoffpl.PhoIndex.frozen = True
+        m.cutoffpl.HighECut.frozen = True
         m.cutoffpl.norm.values = 0.002353 / 32 * bgdapimwt[i]
     else:
         m.cutoffpl.PhoIndex.link = 'apbgd:p%d' % (3 * refspec[fpm] + 1)
         m.cutoffpl.HighECut.link = 'apbgd:p%d' % (3 * refspec[fpm] + 2)
-        m.cutoffpl.norm.link = '%f * apbgd:p%d' % (
+        m.cutoffpl.norm.link = '%e * apbgd:p%d' % (
             bgdapimwt[i] / bgdapimwt[refspec[fpm]],
             3 * refspec[fpm] + 3)
 
@@ -350,18 +238,16 @@ for i in range(xspec.AllData.nSpectra):
 """
 Instrument background (intbgd)
 
-An apec, then many lorentz lines,
-
-Each lorentz has 3 parameters (LineE, Width, norm); apec has 4 parameters (kT,
-Abundanc, Redshift, norm).
+An apec, then many lorentz lines. Each lorentz has 3 parameters (LineE, Width,
+norm); apec has 4 parameters (kT, Abundanc, Redshift, norm).
 
 For the reference spectra:
 
 apec params are loaded from preset.
 
-Lines 1-3 are loaded from preset.
+Lines 1-3 (lorentz, lorentz_3, lorentz_4) are loaded from preset.
 
-Line 4 (19 keV) is loaded from preset:
+Line 4 (19 keV, lorentz_5) is loaded from preset:
 
 norm = sum (ifactor * bgddetimsum)
        ---------------------------
@@ -374,13 +260,23 @@ sum(ifactor * bgddetimsum)
 
 Other spectra:
 
-Lines 1-3 scale to refspec lines 1-3.
+Lines 1-3 scale to refspec lines 1-3 (lorentz, lorentz_3, lorentz_4).
 
-Line 4 scale to refspec line 4.
+Line 4 scale to refspec line 4 (lorentz_5).
 
-Other lines scale to line 4.
+Other lines scale to line 4 (lorentz_5).
 
 apec scale to refspec apec norm.
+
+Note: due to perculiar model component numbering by XSPEC,
+as in the following,
+
+Model intbgd:apec<1> + lorentz<2> + lorentz<3> + lorentz<4> + ...
+
+In this case, the lorentz components have references lorentz, lorentz_3,
+lorentz_4, ... etc. (skipping over lorentz_2). This numbering appears to be
+for all components, not just repeated ones, except the first occurrence omits
+the label.
 """
 
 mod_intbgd = ratios['models'][1]['components']
@@ -402,40 +298,47 @@ for i in range(xspec.AllData.nSpectra):
         m.apec.kT.values = mod_intbgd['apec'][fpm]['kt']
         m.apec.Abundanc.values = mod_intbgd['apec'][fpm]['abundanc']
         m.apec.Redshift.values = mod_intbgd['apec'][fpm]['redshift']
+        m.apec.kT.frozen = True
+        m.apec.Abundanc.frozen = True
+        m.apec.Redshift.frozen = True
         m.apec.norm.values = np.sum(
             bgddetimsum[i] * np.array(
                 mod_intbgd['apec'][fpm]['ifactors'])
         ) / np.sum(bgddetimsum[i])
 
         # 3 solar lines and 19 keV line -- load them from preset
-        for attr in ['lorentz', 'lorentz_2', 'lorentz_3', 'lorentz_4']:
+        for attr in ['lorentz', 'lorentz_3', 'lorentz_4', 'lorentz_5']:
             m_line = getattr(m, attr)
             m_line.LineE.values = mod_intbgd[attr][fpm]['linee']
             m_line.Width.values = mod_intbgd[attr][fpm]['width']
+            m_line.LineE.frozen = True
+            m_line.Width.frozen = True
             m_line.norm.values = np.sum(
                 bgddetimsum[i] * np.array(
                     mod_intbgd[attr][fpm]['ifactors'])
             ) / np.sum(bgddetimsum[i])
 
-        # All the other lines -- lorentz_5 through lorentz_(components-1) --
-        # load them from preset and link to 19 keV line (lorentz_4). There are
-        # 4+3*3=13 parameters before lorentz_4.
+        # All the other lines -- lorentz_6 through lorentz_(components) --
+        # load them from preset and link to 19 keV line (lorentz_5). There are
+        # 4+3*3=13 parameters before lorentz_5.
         for attr_n in range(5, len(mod_intbgd)):
-            attr = 'lorentz_%d' % attr_n
+            attr = 'lorentz_%d' % (attr_n + 1)
             m_line = getattr(m, attr)
             m_line.LineE.values = mod_intbgd[attr][fpm]['linee']
             m_line.Width.values = mod_intbgd[attr][fpm]['width']
+            m_line.LineE.frozen = True
+            m_line.Width.frozen = True
 
             preset = np.sum(
                 bgddetimsum[i] * np.array(
                     mod_intbgd[attr][fpm]['ifactors'])
             ) / np.sum(bgddetimsum[i])
 
-            lorentz_4_norm_npar = i * m.nParameters + 16
+            lorentz_5_norm_npar = i * m.nParameters + 16
 
-            m_line.norm.link = '%f * intbgd:p%d' % (
-                preset / m.lorentz_4.norm.values,
-                refspec_norm_npar)
+            m_line.norm.link = '%e * intbgd:p%d' % (
+                preset / m.lorentz_5.norm.values[0],
+                lorentz_5_norm_npar)
 
     else:
         m_ref = xspec.AllModels(refspec[fpm] + 1, 'intbgd')
@@ -443,7 +346,7 @@ for i in range(xspec.AllData.nSpectra):
 
         # Link apec to refspec
         m.apec.kT.link = 'intbgd:p%d' % (m_ref_npar_offset + 1)
-        m.apec.Abundanclink = 'intbgd:p%d' % (m_ref_npar_offset + 2)
+        m.apec.Abundanc.link = 'intbgd:p%d' % (m_ref_npar_offset + 2)
         m.apec.Redshift.link = 'intbgd:p%d' % (m_ref_npar_offset + 3)
 
         preset = np.sum(
@@ -451,17 +354,17 @@ for i in range(xspec.AllData.nSpectra):
                 mod_intbgd['apec'][fpm]['ifactors'])
         ) / np.sum(bgddetimsum[i])
 
-        m.apec.norm.link = '%f * intbgd:p%d' % (
-            preset / m_ref.apec.norm.values,
+        m.apec.norm.link = '%e * intbgd:p%d' % (
+            preset / m_ref.apec.norm.values[0],
             m_ref_npar_offset + 4
         )
 
         # All lines --- load values from preset and link to refspec
-        for attr_n in range(5, len(mod_intbgd)):
+        for attr_n in range(1, len(mod_intbgd)):
             if attr_n == 1:
                 attr = 'lorentz'  # special case
             else:
-                attr = 'lorentz_%d' % attr_n
+                attr = 'lorentz_%d' % (attr_n + 1)
 
             m_line = getattr(m, attr)
             m_line.LineE.link = 'intbgd:p%d' % (
@@ -474,8 +377,8 @@ for i in range(xspec.AllData.nSpectra):
                     mod_intbgd[attr][fpm]['ifactors'])
             ) / np.sum(bgddetimsum[i])
 
-            m_line.norm.link = '%f * intbgd:p%d' % (
-                preset / getattr(m_ref, attr).norm.values,
+            m_line.norm.link = '%e * intbgd:p%d' % (
+                preset / getattr(m_ref, attr).norm.values[0],
                 m_ref_npar_offset + 3 * (attr_n - 1) + 7
             )
 
@@ -512,8 +415,8 @@ for i in range(xspec.AllData.nSpectra):
         m.cutoffpl.norm.values = preset
     else:
         m_ref = xspec.AllModels(refspec[fpm] + 1, 'fcxb')
-        m.cutoffpl.norm.link = '%f * fcxb:p%d' % (
-            preset / m_ref.cutoffpl.norm.values,
+        m.cutoffpl.norm.link = '%e * fcxb:p%d' % (
+            preset / m_ref.cutoffpl.norm.values[0],
             3 * refspec[fpm] + 3)
 
 
@@ -534,23 +437,42 @@ m_intn_1 = xspec.Model('bknpower', 'intn', 5)
 for i in range(xspec.AllData.nSpectra):
     spec = xspec.AllData(i + 1)
     fpm = fpm_parse(spec.fileinfo('INSTRUME'))
-    m = xspec.AllModels(i + 1, 'fcxb')
+    m = xspec.AllModels(i + 1, 'intn')
 
     m.bknpower.PhoIndx1.values = mod_intn['bknpower'][fpm]['phoindx1']
     m.bknpower.BreakE.values = mod_intn['bknpower'][fpm]['breake']
     m.bknpower.PhoIndx2.values = mod_intn['bknpower'][fpm]['phoindx2']
+    m.bknpower.PhoIndx1.frozen = True
+    m.bknpower.BreakE.frozen = True
+    m.bknpower.PhoIndx2.frozen = True
 
-    preset = np.sum(bgddetimsum * mod_intn['bknpower'][fpm]['ifactors'])
+    preset = np.sum(
+        bgddetimsum[i] * np.float64(mod_intn['bknpower'][fpm]['ifactors']))
 
     if i == refspec['A'] or i == refspec['B']:
         m.bknpower.norm.values = preset
     else:
         m_ref = xspec.AllModels(refspec[fpm] + 1, 'intn')
-        m.bknpower.norm.link = '%f * intn:p%d' % (
-            preset / m_ref.bknpower.norm.values,
+        m.bknpower.norm.link = '%e * intn:p%d' % (
+            preset / m_ref.bknpower.norm.values[0],
             4 * refspec[fpm] + 4)
 
 
+xspec.AllData.ignore('**-3. 150.-**')
+xspec.Fit.method = 'leven 30000 1e-4'
+xspec.Fit.statMethod = 'chi'
+xspec.Fit.perform()
 
 
-
+i = 1
+while i < 101:  # Retry 100 times...
+    if i > 1:
+        savefile = 'bgdparams%d.xcm' % i
+    else:
+        savefile = 'bgdparams.xcm'
+    if not os.path.exists(savefile):
+        xspec.Xset.save(savefile, info='a')
+        print('Saved results to %s.' % savefile)
+        break
+    else:
+        i += 1
