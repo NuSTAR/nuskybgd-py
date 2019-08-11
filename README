@@ -1,0 +1,99 @@
+How to use.
+
+# Make instrument maps, do this for each module (A01_cl.evt and B01_cl.evt),
+# obtain newinstrmapA.fits and newinstrmapB.fits
+
+instrmap.py A01_cl.evt [usrbpix=morebadpix.fits] [prefix=prefix] [dryrun=yes]
+
+
+
+
+
+
+# Use mkimgs.py to make an image (cd into the top level)
+
+./mkimgs.py ./ 50002031004 3 20
+
+
+
+
+
+
+# Aspect histogram images:
+
+projobs.py nu90201039002A_det1.fits gtifile=nu90201039002A01_gti.fits out=aspecthistA.fits
+
+projobs.py nu90201039002B_det1.fits gtifile=nu90201039002B01_gti.fits out=aspecthistB.fits
+
+
+
+
+
+
+# Background aperture images:
+
+cd bgd/
+
+projinitbgds.py refimg=../imB3to20keV.fits out=bgdapA.fits mod=A det=1234 chipmap=newinstrmapA.fits aspect=../aspecthistA.fits
+
+projinitbgds.py refimg=../imB3to20keV.fits out=bgdapB.fits mod=B det=1234 chipmap=newinstrmapB.fits aspect=../aspecthistB.fits
+
+
+
+
+# Create some background regions and extract spectra from both A and B modules, e.g.
+
+./getspecnoarf.py ./ 50002031004 bgd1A bgdspec A
+./getspecnoarf.py ./ 50002031004 bgd1B bgdspec B
+./getspecnoarf.py ./ 50002031004 bgd2A bgdspec A
+./getspecnoarf.py ./ 50002031004 bgd2B bgdspec B
+
+
+
+
+
+# Fix the spectral products' RESPFILE keywords
+
+#cd IC342_X1/90201039002/event_cl/bgd
+find . -iname "*.pha" -type f -exec phafix.py {} \;
+
+
+
+
+
+# Run fitab (requires pyXspec) to get bgdparams.xcm that has the fitted
+# background model within
+
+
+@bgdparams.xcm
+ignore **:**-3. 150.-**
+cpd /xw
+setplot energy
+setplot command res y 1e-4 0.04
+plot ldata delchi
+
+
+
+
+
+*********************************************:
+
+
+TODO:
+
+nuskybgd_imrefspec.pro
+
+Generate auxil data that goes in the auxil directory, needed for making images
+of the background.
+
+
+nuskybgd_image.pro
+
+Create images of the background.
+
+
+nuskybgd_spec.pro
+
+Create background spectra using Xspec fakeit.
+
+
