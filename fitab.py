@@ -124,6 +124,9 @@ def nuskybgd_fitab(indir, obsid, bgdreg, specdir, specname, ab,
 
 
 spectra = []
+
+xspec.DataManager.clear(0)  # Clear any existing loaded data
+
 # Load each spectrum as a new data group
 for i in range(len(bgfiles)):
     spectra.append(xspec.AllData('{num}:{num} {file}'.format(
