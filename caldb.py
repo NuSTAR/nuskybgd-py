@@ -18,13 +18,12 @@ class CalDB:
     telescope = 'NUSTAR'
     instrument = 'FPMA'  # FPMA or FPMB
     cnam = 'PIXPOS'
-    obsdate = '2014-01-01'
-    obstime = '00:00:00'
+    obsutctime = '2014-01-01T00:00:00'
     detnam = 'DET0'  # DET0 - DET3
 
     cal = CalDB(caldb_path)
     cal.getcaldbfile(caldb_path, telescope, instrument, cnam,
-                     detnam, obsdate, obstime)
+                     detnam, obsutctime)
 
     Output:
 
@@ -46,7 +45,7 @@ class CalDB:
     Input:
 
     cal.getcaldbfile(caldb_path, telescope, instrument, 'BADPIX',
-                     detnam, obsdate, obstime)
+                     detnam, obsutctime)
 
     Output:
 
@@ -76,39 +75,39 @@ class CalDB:
 
     # ------------------------------------
 
-    def getGRPPSF(self, instrument, obsdate, obstime):
+    def getGRPPSF(self, instrument, obsutctime):
         return self.getcaldbfile(
-            self.telescope, instrument, 'GRPPSF', None, obsdate, obstime)
+            self.telescope, instrument, 'GRPPSF', None, obsutctime)
 
-    def getDETABS(self, instrument, detnam, obsdate, obstime):
+    def getDETABS(self, instrument, detnam, obsutctime):
         return self.getcaldbfile(
-            self.telescope, instrument, 'DETABS', detnam, obsdate, obstime)
+            self.telescope, instrument, 'DETABS', detnam, obsutctime)
 
-    def getSPECRESP(self, instrument, obsdate, obstime):
+    def getSPECRESP(self, instrument, obsutctime):
         return self.getcaldbfile(
-            self.telescope, instrument, 'SPECRESP', None, obsdate, obstime)
+            self.telescope, instrument, 'SPECRESP', None, obsutctime)
 
-    def getTVIGNET(self, instrument, obsdate, obstime):
+    def getTVIGNET(self, instrument, obsutctime):
         return self.getcaldbfile(
-            self.telescope, instrument, 'TVIGNET', None, obsdate, obstime)
+            self.telescope, instrument, 'TVIGNET', None, obsutctime)
 
-    def getINSTRMAP(self, instrument, obsdate, obstime):
+    def getINSTRMAP(self, instrument, obsutctime):
         return self.getcaldbfile(
-            self.telescope, instrument, 'INSTRMAP', None, obsdate, obstime)
+            self.telescope, instrument, 'INSTRMAP', None, obsutctime)
 
-    def getPIXPOS(self, instrument, detnam, obsdate, obstime):
+    def getPIXPOS(self, instrument, detnam, obsutctime):
         return self.getcaldbfile(
-            self.telescope, instrument, 'PIXPOS', detnam, obsdate, obstime)
+            self.telescope, instrument, 'PIXPOS', detnam, obsutctime)
 
-    def getAPERTURE(self, instrument, obsdate, obstime):
+    def getAPERTURE(self, instrument, obsutctime):
         return self.getcaldbfile(
-            self.telescope, instrument, 'APERTURE', None, obsdate, obstime)
+            self.telescope, instrument, 'APERTURE', None, obsutctime)
 
     # ------------------------------------
 
     def getcaldbfile(
             self, telescope, instrument, cnam,
-            detnam, obsdate, obstime, diag=False):
+            detnam, obsutctime, diag=False):
 
         table = self._fh[1].data
 
@@ -134,11 +133,10 @@ class CalDB:
                 cnam, instrument))
             return False
 
-        obsdt = datetime.datetime.strptime(
-            '%s %s' % (obsdate, obstime), '%Y-%m-%d %H:%M:%S')
+        obsdt = datetime.datetime.strptime(obsutctime, '%Y-%m-%dT%H:%M:%S')
         startdt = np.array([
-            datetime.datetime.strptime('%s %s' % (
-                vs[0], vs[1]), '%Y-%m-%d %H:%M:%S')
+            datetime.datetime.strptime('%sT%s' % (
+                vs[0], vs[1]), '%Y-%m-%dT%H:%M:%S')
             for vs in zip(
                 table[inx].field('CAL_VSD'),
                 table[inx].field('CAL_VST'))
@@ -174,8 +172,8 @@ class CalDB:
             print('No file matched DETNAM filter; try using detnam=None.')
             return False
 
-        print('CALDB files for %s %s %s %s %s:' % (
-            cnam, instrument, detnam, obsdate, obstime))
+        print('CALDB files for %s %s %s %s:' % (
+            cnam, instrument, detnam, obsutctime))
         print('%s/' % self._CalDBPath)
         print('\n'.join(filelist[:-1]))
         print('%s ***SELECTED***' % filelist[-1])
