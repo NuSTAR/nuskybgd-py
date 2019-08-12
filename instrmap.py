@@ -24,6 +24,8 @@ import datetime
 import astropy.io.fits as pf
 import numpy as np
 import scipy.ndimage
+import nuskybgd
+import nuskybgd.caldb
 
 
 class CaldbIndx():
@@ -61,20 +63,18 @@ def nuskybgd_timestamp():
             datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
 
-def get_caldb_instrmap(fpm):
+def get_caldb_instrmap(evthdr):
     """
     Get instrument map image from CALDB, shifted by (-1, -1).
 
     Returns (image, FITS header).
     """
-    if fpm not in ('A', 'B'):
-        print('Error: FPM must be A or B')
-        return False
+    fpm = evthdr['INSTRUME']
+    obsutctime = evthdr['DATE-OBS']
 
-    caldb = os.environ['CALDB']
-    imappath = ('%s/data/nustar/fpm/bcf/instrmap/'
-                'nu%sinstrmap20100101v003.fits') % (caldb, fpm)
-    imapf = pf.open(imappath)
+    caldb = nuskybgd.caldb.CalDB(os.environ['CALDB'])
+    imappath = caldb.getINSTRMAP(fpm, obsutctime)
+    imapf = pf.open('%s/%s' % (os.environ['CALDB'], imappath))
     try:
         imap = imapf['INSTRMAP'].data
     except KeyError:
@@ -86,11 +86,13 @@ def get_caldb_instrmap(fpm):
     return shift_image(imap, [-1, -1]), hdr
 
 
-def get_caldb_pixpos(fpm):
-    caldb = os.environ['CALDB']
-    pixpospath = ('%s/data/nustar/fpm/bcf/pixpos/'
-                  'nu%spixpos20100101v005.fits') % (caldb, fpm)
-    pixposf = pf.open(pixpospath)
+def get_caldb_pixpos(evthdr):
+    fpm = evthdr['INSTRUME']
+    obsutctime = evthdr['DATE-OBS']
+    caldb = nuskybgd.caldb.CalDB(os.environ['CALDB'])
+    pixpospath = caldb.getPIXPOS(fpm, 'DET0', obsutctime)
+
+    pixposf = pf.open('%s/%s' % (os.environ['CALDB'], pixpospath))
 
     pixmap = np.full((360, 360), -1, dtype=np.int32)
     detnum = np.full((360, 360), -1, dtype=np.int32)
@@ -180,17 +182,16 @@ def get_badpix_exts(bpixfiles):
     return bpixlist
 
 
-def apply_badpix(instrmap, bpixfile, pixmap, detnum):
-    bpixf = pf.open(bpixfile)
-    hh = bpixf[0].header
+def apply_badpix(instrmap, bpixexts, pixmap, detnum):
     output = 1. * instrmap
 
-    if ('TSTART' in hh and 'TSTOP' in hh):
-        tobs = hh['TSTOP'] - hh['TSTART']
-    else:
-        tobs = None
+    for ext in bpixexts:
+        hh = ext.header
+        if ('TSTART' in hh and 'TSTOP' in hh):
+            tobs = hh['TSTOP'] - hh['TSTART']
+        else:
+            tobs = None
 
-    for ext in bpixf:
         if not ('EXTNAME' in ext.header and
                 'BADPIX' in ext.header['EXTNAME'] and
                 'DETNAM' in ext.header and
@@ -215,7 +216,7 @@ def apply_badpix(instrmap, bpixfile, pixmap, detnum):
                 output[ii] = 0
 
             ii = np.where(output > 0)
-            output[ii] += detnum[ii]
+            output[ii] = detnum[ii] + 1
 
     return output
 
@@ -336,9 +337,10 @@ Error: bad pixel file not found, skipping:
     print('Creating instrument maps for FPM%s for observation %s' % (
         ab, obsinfofile))
 
-    caldbbpixpath = ('%s/data/nustar/fpm/bcf/badpix/'
-                     'nu%sbadpix20100101v002.fits') % (caldb, ab)
-    bpixfiles.append(caldbbpixpath)
+    caldb = nuskybgd.caldb.CalDB(os.environ['CALDB'])
+    caldbbpixpath = caldb.getBADPIX(
+        evthdr['INSTRUME'], 'DET0', evthdr['DATE-OBS'])
+    bpixfiles.append('%s/%s' % (os.environ['CALDB'], caldbbpixpath))
 
     print('Collecting bad pixel lists...')
     bpixexts = get_badpix_exts(bpixfiles)
@@ -348,14 +350,15 @@ Error: bad pixel file not found, skipping:
         sys.exit(0)
 
     print('Loading CALDB instrmap...')
-    instrmap, header = get_caldb_instrmap(ab)
+    instrmap, header = get_caldb_instrmap(evthdr)
     print('Loading CALDB pixpos...')
-    pixmap, detnum = get_caldb_pixpos(ab)
+    pixmap, detnum = get_caldb_pixpos(evthdr)
 
     print('Applying bad pixels lists for FPM%s...' % ab)
+    masked_instrmap = apply_badpix(instrmap, bpixexts[ab], pixmap, detnum)
 
     pf.HDUList(
-        pf.PrimaryHDU(instrmap, header=header)
+        pf.PrimaryHDU(masked_instrmap, header=header)
     ).writeto(outfilename)
 
 
