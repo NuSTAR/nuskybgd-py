@@ -3,7 +3,7 @@ How to use.
 # Make instrument maps, do this for each module (A01_cl.evt and B01_cl.evt),
 # obtain newinstrmapA.fits and newinstrmapB.fits
 
-instrmap.py A01_cl.evt [usrbpix=morebadpix.fits] [prefix=prefix] [dryrun=yes]
+instrmap.py A01_cl.evt [usrbpix=morebadpix.fits] [prefix=prefix] [dryrun=no]
 
 
 
@@ -21,9 +21,11 @@ instrmap.py A01_cl.evt [usrbpix=morebadpix.fits] [prefix=prefix] [dryrun=yes]
 
 # Aspect histogram images:
 
-projobs.py nu90201039002A_det1.fits gtifile=nu90201039002A01_gti.fits out=aspecthistA.fits
+projobs.py nu90201039002A_det1.fits gtifile=nu90201039002A01_gti.fits
+out=aspecthistA.fits
 
-projobs.py nu90201039002B_det1.fits gtifile=nu90201039002B01_gti.fits out=aspecthistB.fits
+projobs.py nu90201039002B_det1.fits gtifile=nu90201039002B01_gti.fits
+out=aspecthistB.fits
 
 
 
@@ -34,14 +36,17 @@ projobs.py nu90201039002B_det1.fits gtifile=nu90201039002B01_gti.fits out=aspect
 
 cd bgd/
 
-projinitbgds.py refimg=../imB3to20keV.fits out=bgdapA.fits mod=A det=1234 chipmap=newinstrmapA.fits aspect=../aspecthistA.fits
+projinitbgds.py refimg=../imB3to20keV.fits out=bgdapA.fits \
+	mod=A det=1234 chipmap=newinstrmapA.fits aspect=../aspecthistA.fits
 
-projinitbgds.py refimg=../imB3to20keV.fits out=bgdapB.fits mod=B det=1234 chipmap=newinstrmapB.fits aspect=../aspecthistB.fits
+projinitbgds.py refimg=../imB3to20keV.fits out=bgdapB.fits \
+	mod=B det=1234 chipmap=newinstrmapB.fits aspect=../aspecthistB.fits
 
 
 
 
-# Create some background regions and extract spectra from both A and B modules, e.g.
+# Create some background regions and extract spectra from both A and B
+# modules, e.g.
 
 ./getspecnoarf.py ./ 50002031004 bgd1A bgdspec A
 ./getspecnoarf.py ./ 50002031004 bgd1B bgdspec B
@@ -64,14 +69,61 @@ find . -iname "*.pha" -type f -exec phafix.py {} \;
 # Run fitab (requires pyXspec) to get bgdparams.xcm that has the fitted
 # background model within
 
+# Create bgdinfo.json in bgd/:
+{
+    "bgfiles": [
 
-@bgdparams.xcm
+        "bgd1A_sr_g30.pha", "bgd1B_sr_g30.pha",
+        "bgd2A_sr_g30.pha", "bgd2B_sr_g30.pha",
+        "bgd3A_sr_g30.pha", "bgd3B_sr_g30.pha"
+
+    ],
+
+    "regfiles": [
+
+        "bgd1A.reg", "bgd1B.reg",
+        "bgd2A.reg", "bgd2B.reg",
+        "bgd3A.reg", "bgd3B.reg"
+
+    ],
+
+    "refimgf": "bgdapA.fits",
+
+    "bgdapfiles": {
+
+        "A": "bgdapA.fits",
+        "B": "bgdapB.fits"
+
+    },
+
+    "bgddetfiles": {
+
+        "A": [
+            "det0Aim.fits",
+            "det1Aim.fits",
+            "det2Aim.fits",
+            "det3Aim.fits"
+        ],
+
+        "B": [
+            "det0Bim.fits",
+            "det1Bim.fits",
+            "det2Bim.fits",
+            "det3Bim.fits"
+        ]
+    }
+}
+
+# Run fitab.py
+
+fitab.py bgdinfo.json savefile=IC342bgd
+
+@IC342bgd.xcm
 ignore **:**-3. 150.-**
 cpd /xw
 setplot energy
 setplot command res y 1e-4 0.04
 plot ldata delchi
-
 
 
 
