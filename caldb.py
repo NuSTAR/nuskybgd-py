@@ -83,6 +83,10 @@ class CalDB:
         return self.getcaldbfile(
             self.telescope, instrument, 'DETABS', detnam, obsutctime)
 
+    def getGRPRMF(self, instrument, detnam, obsutctime):
+        return self.getcaldbfile(
+            self.telescope, instrument, 'GRPRMF', detnam, obsutctime)
+
     def getSPECRESP(self, instrument, obsutctime):
         return self.getcaldbfile(
             self.telescope, instrument, 'SPECRESP', None, obsutctime)
@@ -107,8 +111,19 @@ class CalDB:
 
     def getcaldbfile(
             self, telescope, instrument, cnam,
-            detnam, obsutctime, diag=False):
+            detnam, obsutctime, verbose=False, diag=False):
+        """
+        The CALDB file is selected in the following manner:
 
+        - Match TELESCOP, INSTRUME, CAL_CNAM keywords in header
+        - Select files whose CAL_VSD and CAL_VST pre-date the requested time
+        - Filter by DETNAM, if specified
+        - (GRPRMF only) select files with CAL_CBD containing DEPTHCUT(NOMINAL)
+        - Sort file names and pick the last one
+
+        The CALDB files are typically named with dates and versions in such a
+        way that the last entry after sorting is the latest file.
+        """
         table = self._fh[1].data
 
         halt = False
@@ -172,11 +187,12 @@ class CalDB:
             print('No file matched DETNAM filter; try using detnam=None.')
             return False
 
-        print('CALDB files for %s %s %s %s:' % (
-            cnam, instrument, detnam, obsutctime))
-        print('%s/' % self._CalDBPath)
-        print('\n'.join(filelist[:-1]))
-        print('%s ***SELECTED***' % filelist[-1])
+        if verbose:
+            print('CALDB files for %s %s %s %s:' % (
+                cnam, instrument, detnam, obsutctime))
+            print('%s/' % self._CalDBPath)
+            print('\n'.join(filelist[:-1]))
+            print('%s ***SELECTED***' % filelist[-1])
 
         if not diag:
             return filelist[-1]
