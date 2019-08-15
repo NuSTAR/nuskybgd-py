@@ -86,6 +86,10 @@ absrmf.py nu90201039002B01_cl.evt bgd/det
 
 
 
+# Create fake spectra of apbgd and fcxb components
+
+cd bgd/
+imrefspec.py AB 0123
 
 
 
@@ -94,18 +98,13 @@ absrmf.py nu90201039002B01_cl.evt bgd/det
 
 TODO:
 
-nuskybgd_imrefspec.pro
 
-Generate auxil data that goes in the auxil directory, needed for making images
-of the background.
-
-
-nuskybgd_image.pro
+nuskybgd_image
 
 Create images of the background.
 
 
-nuskybgd_spec.pro
+nuskybgd_spec
 
 Create background spectra using Xspec fakeit.
 
