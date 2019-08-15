@@ -76,6 +76,19 @@ plot ldata delchi
 
 
 
+# Add detabs to rmf:
+# Creates det0A.rmf, det1A.rmf, etc... in bgd/
+
+cd /Users/qw/astro/nustar/IC342_X1/90201039002/event_cl
+absrmf.py nu90201039002A01_cl.evt bgd/det
+absrmf.py nu90201039002B01_cl.evt bgd/det
+
+
+
+
+
+
+
 *********************************************:
 
 
