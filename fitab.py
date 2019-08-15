@@ -1,4 +1,35 @@
 #!/usr/bin/env python3
+"""
+fitab.py
+
+Fit a multi-component background model to spectra from several background
+regions and save the best-fit model to an xcm file. If the intended save file
+exists, will retry 99 times with a number (2 to 100) appended to the name.
+
+Usage:
+
+fitab.py bgdinfo.json [savefile=bgdparams.xcm]
+
+fitab.py --help  # print a sample bgdinfo.json
+
+Required in bgdinfo.json:
+
+    bgfiles - An array of spectra file names, extracted from background
+        regions, grouped so that bins have gaussian statistics.
+
+    regfiles - An array of region files for the background regions, in the
+        same order as bgfiles.
+
+    refimgf - Reference image file for creating region mask images, can be the
+        background aperture image file.
+
+    bgdapfiles - Dictionary with 'A' and 'B' keys, pointing to background
+        aperture image files for each focal plane module.
+
+    bgddetfiles - Dictionary with 'A' and 'B' keys, pointing to lists of 4
+        detector mask image files for each focal plane module.
+"""
+
 import os
 import sys
 import json
@@ -16,6 +47,46 @@ import pyregion
 
 
 _NUSKYBGD_AUX_ENV = 'NUSKYBGD_AUXIL'
+
+EXAMPLE_BGDINFO = """
+Sample bgdinfo.json:
+
+{
+    "bgfiles": [
+        "bgd1A_sr_g30.pha", "bgd1B_sr_g30.pha",
+        "bgd2A_sr_g30.pha", "bgd2B_sr_g30.pha",
+        "bgd3A_sr_g30.pha", "bgd3B_sr_g30.pha"
+    ],
+
+    "regfiles": [
+        "bgd1A.reg", "bgd1B.reg",
+        "bgd2A.reg", "bgd2B.reg",
+        "bgd3A.reg", "bgd3B.reg"
+    ],
+
+    "refimgf": "bgdapA.fits",
+
+    "bgdapfiles": {
+        "A": "bgdapA.fits",
+        "B": "bgdapB.fits"
+    },
+
+    "bgddetfiles": {
+        "A": [
+            "det0Aim.fits",
+            "det1Aim.fits",
+            "det2Aim.fits",
+            "det3Aim.fits"
+        ],
+        "B": [
+            "det0Bim.fits",
+            "det1Bim.fits",
+            "det2Bim.fits",
+            "det3Bim.fits"
+        ]
+    }
+}
+"""
 
 
 def read_model_template(fpm):
@@ -438,7 +509,89 @@ def save_xcm(prefix='bgdparams'):
     return False
 
 
+def check_bgdinfofile(bgdinfofile):
+    """
+    Check that the background info file has the required items.
+    """
+    if not os.path.exists(bgdinfofile):
+        print('Error: file %s not found.' % bgdinfofile)
+        return False
+
+    bgdinfo = json.loads(open(bgdinfofile).read())
+
+    problem = False
+    for key in (
+        'bgfiles', 'regfiles', 'refimgf', 'bgdapfiles', 'bgddetfiles'
+    ):
+        if key not in bgdinfo:
+            problem = True
+            print('%s not found in background info file.' % key)
+
+    # Same number of items in bgfiles and regfiles:
+    if len(bgdinfo['bgfiles']) != len(bgdinfo['regfiles']):
+        problem = True
+        print('bgfiles and regfiles must have the same number of entries.')
+
+    # A and B keys in bgdapfiles and bgddetfiles
+    if ('A' not in bgdinfo['bgdapfiles'] or
+            'B' not in bgdinfo['bgdapfiles'] or
+            'A' not in bgdinfo['bgddetfiles'] or
+            'B' not in bgdinfo['bgddetfiles']):
+        problem = True
+        print('bgdapfiles and bgddetfiles must have A and B keys.')
+
+    # Check files exist
+    queue = []
+    for _ in bgdinfo['bgfiles']:
+        if isinstance(_, str):
+            queue.append(_)
+
+    for _ in bgdinfo['regfiles']:
+        if isinstance(_, str):
+            queue.append(_)
+
+    for _ in bgdinfo['bgddetfiles']['A']:
+        if isinstance(_, str):
+            queue.append(_)
+
+    for _ in bgdinfo['bgddetfiles']['B']:
+        if isinstance(_, str):
+            queue.append(_)
+
+    queue.append(bgdinfo['refimgf'])
+    queue.append(bgdinfo['bgdapfiles']['A'])
+    queue.append(bgdinfo['bgdapfiles']['B'])
+
+    for _ in queue:
+        if not os.path.exists(_):
+            problem = True
+            print('Error: file %s not found.' % _)
+
+    if problem:
+        return False
+    else:
+        return bgdinfo
+
+
 if __name__ == '__main__':
+    if len(sys.argv) not in (2, 3):
+        print(__doc__)
+        sys.exit(0)
+
+    if sys.argv[1] == '--help':
+        print(__doc__)
+        print(EXAMPLE_BGDINFO)
+        sys.exit(0)
+
+    keywords = {
+        'savefile': None
+    }
+
+    for _ in sys.argv[2:]:
+        arg = _.split('=')
+        if arg[0] in keywords:
+            keywords[arg[0]] = arg[1]
+
     # Check auxil dir setting
     if _NUSKYBGD_AUX_ENV not in os.environ:
         print('Please set the NUSKYBGD_AUXIL environment variable first.')
@@ -451,41 +604,24 @@ if __name__ == '__main__':
     auxildir = os.environ[_NUSKYBGD_AUX_ENV]
 
     # Input params
-    ratios = json.loads(open('%s/ratios.json' % auxildir).read())
+    bgdinfofile = sys.argv[1]
 
+    bgdinfo = check_bgdinfofile(bgdinfofile)
+
+    if bgdinfo is False:
+        print('Error: background info file %s problem.' % bgdinfofile)
+        sys.exit(1)
+
+    ratios = json.loads(open('%s/ratios.json' % auxildir).read())
     # In [45]: ratiosA.keys()
     # Out[45]: dict_keys(['name', 'comment', 'models'])
 
     # bgfiles and regfiles must have the same ordering
-    bgfiles = ['bgd1A_sr_g30.pha', 'bgd1B_sr_g30.pha',
-               'bgd2A_sr_g30.pha', 'bgd2B_sr_g30.pha',
-               'bgd3A_sr_g30.pha', 'bgd3B_sr_g30.pha']
-
-    regfiles = ['bgd1A.reg', 'bgd1B.reg',
-                'bgd2A.reg', 'bgd2B.reg',
-                'bgd3A.reg', 'bgd3B.reg']
-
-    refimgf = 'bgdapA.fits'
-
-    bgdapfiles = {
-        'A': 'bgdapA.fits',
-        'B': 'bgdapB.fits'
-    }
-
-    bgddetfiles = {
-        'A': [
-            'det0Aim.fits',
-            'det1Aim.fits',
-            'det2Aim.fits',
-            'det3Aim.fits'
-        ],
-        'B': [
-            'det0Bim.fits',
-            'det1Bim.fits',
-            'det2Bim.fits',
-            'det3Bim.fits'
-        ]
-    }
+    bgfiles = bgdinfo['bgfiles']
+    regfiles = bgdinfo['regfiles']
+    refimgf = bgdinfo['refimgf']
+    bgdapfiles = bgdinfo['bgdapfiles']
+    bgddetfiles = bgdinfo['bgddetfiles']
 
     bgdapim = {}
     bgdapim['A'] = pf.open(bgdapfiles['A'])[0].data
@@ -568,12 +704,9 @@ if __name__ == '__main__':
     for i in range(xspec.AllData.nSpectra):
         spec = xspec.AllData(i + 1)
         fpm = fpm_parse(spec.fileinfo('INSTRUME'))
-
         regmask = mask_from_region(regfiles[i], refimgf)
-
         detnpix = [np.sum(regmask * detim) for detim in bgddetim[fpm]]
         bgddetimsum.append(detnpix)
-
         bgdapimwt.append(np.sum(regmask * bgdapim[fpm]))
 
     addmodel_apbgd(ratios, refspec, bgdapimwt, 2)
@@ -582,6 +715,10 @@ if __name__ == '__main__':
     addmodel_intn(ratios, refspec, bgddetimsum, 5)
 
     run_fit()
-    save_xcm()
+
+    if keywords['savefile'] is None:
+        save_xcm()
+    else:
+        save_xcm(prefix=keywords['savefile'].strip())
 
     sys.exit(0)
