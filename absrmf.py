@@ -103,8 +103,8 @@ def make_absrmf(evtfile, outfile,
             'File creation date (YYYY-MM-DDThh:mm:ss UTC)'
         )
         absrmffh[1].header['HISTORY'] = (
-            'RMF multiplied by DETABS using files %s and %s' % (
-                rmffile, detabsfile
+            'Modified RMF to include DETABS, using files %s and %s' % (
+                rmflist[idet], detabslist[idet]
             )
         )
         absrmffh['MATRIX'].data['MATRIX'] = absmatrix
