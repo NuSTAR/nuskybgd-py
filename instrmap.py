@@ -83,7 +83,7 @@ def get_caldb_instrmap(evthdr):
     hdr = imapf['INSTRMAP'].header
     hdr['HISTORY'] = nuskybgd_timestamp()
     hdr['HISTORY'] = 'Created inst. map from %s' % os.path.basename(imappath)
-    return shift_image(imap, [-1, -1]), hdr
+    return imap, hdr
 
 
 def get_caldb_pixpos(evthdr):
