@@ -53,8 +53,14 @@ projinitbgds.py refimg=../imB3to20keV.fits out=bgdapB.fits \
 ./getspecnoarf.py ./ 50002031004 bgd2A bgdspec A
 ./getspecnoarf.py ./ 50002031004 bgd2B bgdspec B
 
+# New syntax
+getspecnoarf.py nu90201039002A01_cl.evt reg=src.reg \
+    indir=./ outdir=./ outprefix=srcA \
+    attfile=../auxil/nu90201039002_att.fits.gz >& srcA.log
 
-
+getspecnoarf.py nu90201039002B01_cl.evt reg=src.reg \
+    indir=./ outdir=./ outprefix=srcB \
+    attfile=../auxil/nu90201039002_att.fits.gz >& srcB.log
 
 
 # Fix the spectral products' RESPFILE keywords
@@ -148,16 +154,13 @@ imrefspec.py AB 0123
 *********************************************:
 
 
-TODO:
+TODO
 
+Lookup nucoord source to figure out coord transform, make instrmap use the
+same method.
 
-nuskybgd_image
-
-Create images of the background.
-
-
-nuskybgd_spec
-
-Create background spectra using Xspec fakeit.
+hard background modelling examples
+ophiuchus -- cluster fills fov
+A2146 -- gain shifts
 
 
