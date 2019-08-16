@@ -99,6 +99,10 @@ class CalDB:
         return self.getcaldbfile(
             self.telescope, instrument, 'INSTRMAP', None, obsutctime)
 
+    def getBADPIX(self, instrument, detnam, obsutctime):
+        return self.getcaldbfile(
+            self.telescope, instrument, 'BADPIX', detnam, obsutctime)
+
     def getPIXPOS(self, instrument, detnam, obsutctime):
         return self.getcaldbfile(
             self.telescope, instrument, 'PIXPOS', detnam, obsutctime)
