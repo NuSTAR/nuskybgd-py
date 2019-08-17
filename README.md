@@ -115,6 +115,27 @@ projinitbgds.py refimg=../imB3to20keV.fits out=bgdapB.fits \
 
 ## Extract spectra from background regions
 
+> **Note about regions**
+>
+> Region masking is handled by pyregion. If in doubt, test whether your region
+> results in the mask as expected, directly with pyregion.
+>
+> In general:
+>
+> The mask is created by rendering each entry in the region file in sequence,
+> changing pixels to `1` for an include region or changing pixels to `0` for
+> an exclude region. Therefore, order matters! The final value in a given
+> pixel depends on the last region that covers it.
+>
+> Is this behaviour the same in all software? I would not bet on it. It is
+> particularly ambiguous if you are just looking at the regions in DS9, as to
+> whether the include or exclude region takes precedence. To be completely
+> safe, create regions such that all exclude regions come after all include
+> regions.
+>
+> The same consideration should be given to region type. Stick to circle, box,
+> and ellipse to be safe.
+
 Create some background regions and extract spectra from both A and B modules,
 e.g. I selected three background regions in DS9 and saved them in ds9 fk5
 format, `bgd1.reg`, `bgd2.reg`, and `bgd3.reg`.
@@ -207,11 +228,11 @@ regions need to be updated for your data.
 }
 ```
 
-Run fitab.py:
+Run fitab.py directing stdout to a log file, then check the log:
 
 ```
 # In event_cl/bgd/
-fitab.py bgdinfo.json savefile=IC342bgd
+fitab.py bgdinfo.json savefile=IC342bgd >& fitab.log
 ```
 
 Load the save file in Xspec:
@@ -240,6 +261,9 @@ these using the model component names.
 save all mymodel
 ```
 
+The saved xcm file should not contain any general XSPEC/Tcl scripts because
+PyXspec will not properly execute it.
+
 
 ## Add detabs to rmf
 
@@ -263,15 +287,19 @@ imrefspec.py AB 0123
 
 ---
 
+Extract the spectrum of an extended source in the aperture defined by src.reg.
+
 ```
 # In event_cl/
+mkdir spec
+
 getspecnoarf.py nu90201039002A01_cl.evt reg=src.reg \
-    indir=./ outdir=bgd/ outprefix=srcA \
-    attfile=../auxil/nu90201039002_att.fits.gz >& bgd/srcA.log
+    indir=. outdir=spec outprefix=srcA \
+    attfile=../auxil/nu90201039002_att.fits.gz >& spec/srcA.log
 
 getspecnoarf.py nu90201039002B01_cl.evt reg=src.reg \
-    indir=./ outdir=bgd/ outprefix=srcB \
-    attfile=../auxil/nu90201039002_att.fits.gz >& bgd/srcB.log
+    indir=. outdir=spec outprefix=srcB \
+    attfile=../auxil/nu90201039002_att.fits.gz >& spec/srcB.log
 ```
 
 TODO
