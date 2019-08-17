@@ -1,0 +1,10 @@
+0.32   # A norm: 10-15 keV cts/deg^2/mm^2/(10^5 s)
+0.32   # B norm: 10-15 keV cts/deg^2/mm^2/(10^5 s)
+0.     # A const offset: irrelevant here
+0.     # B const offset: irrelevant here
+-3.4   # A x shift in mm
+2.0    # A x shift in mm
+0.     # A detector rotation
+-3.5   # B x shift in mm
+1.6   # B y shift in mm
+0.     # B detector rotation
