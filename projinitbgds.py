@@ -21,7 +21,7 @@ import astropy.io.fits as pf
 import numpy as np
 
 
-NUSKYBGD_DB = '/Users/qw/astro/nustar/nuskybgd-idl/auxil'
+_NUSKYBGD_AUX_NAME = 'NUSKYBGD_AUXIL'
 
 
 def get_det_mask(instmap_mask_file, detnum):
@@ -77,25 +77,27 @@ def get_aspect_hist_peak(asphistimg, xoff=0, yoff=0):
 
 
 def get_aperture_image(detector):
+
+    auxildir = os.environ[_NUSKYBGD_AUX_NAME]
     if detector not in ('A', 'B'):
         print('Detector must have value A or B.')
         return False
 
     # Look up a preset params file to determine shift and rotation, rescale
     # factor
-    with open('%s/nomapbgdparams.dat' % NUSKYBGD_DB, 'r') as pfile:
+    with open('%s/nomapbgdparams.dat' % auxildir, 'r') as pfile:
         _content = pfile.read().splitlines()
         # Extract the first part before the # on each line
         paperbgd = [float(_.split('#')[0]) for _ in _content]
 
     if detector == 'A':
-        aperture_db = pf.open('%s/detA_det1.img' % NUSKYBGD_DB)[0].data
+        aperture_db = pf.open('%s/detA_det1.img' % auxildir)[0].data
         shift_x = paperbgd[4] / 0.12096
         shift_y = paperbgd[5] / 0.12096
         rot_angle = paperbgd[6]
         rescale = 3.1865E-05 * paperbgd[0] * 0.12096 * 0.12096
     else:
-        aperture_db = pf.open('%s/detB_det1.img' % NUSKYBGD_DB)[0].data
+        aperture_db = pf.open('%s/detB_det1.img' % auxildir)[0].data
         shift_x = paperbgd[7] / 0.12096
         shift_y = paperbgd[8] / 0.12096
         rot_angle = paperbgd[9]
@@ -288,8 +290,14 @@ if __name__ == '__main__':
         print('No valid detector number specified.')
         sys.exit(1)
 
-    if not os.path.exists(NUSKYBGD_DB):
-        print('Error: NUSKYBGD_DB path does not exists (%s)' % NUSKYBGD_DB)
+    if _NUSKYBGD_AUX_NAME not in os.environ:
+        print('Environment variable $%s must be set.' % _NUSKYBGD_AUX_NAME)
+        sys.exit(1)
+
+    auxildir = os.environ[_NUSKYBGD_AUX_NAME]
+
+    if not os.path.exists(auxildir):
+        print('Error: NUSKYBGD_AUXIL path does not exists (%s)' % auxildir)
 
     if args['out'][0] != '!':
         halt = False
@@ -304,7 +312,7 @@ if __name__ == '__main__':
         if halt:
             sys.exit(1)
 
-    print('Using auxiliary data in %s' % NUSKYBGD_DB)
+    print('Using auxiliary data in %s' % auxildir)
 
     detmask = get_det_mask(args['chipmap'], det_input)
     apim = get_aperture_image(args['mod'])

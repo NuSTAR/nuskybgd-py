@@ -175,7 +175,8 @@ def make_aspecthist_img(coords, dt):
     return asphistimg, x_min, x_max, y_min, y_max
 
 
-def write_aspecthist_img(asphistimg, outfilename, aimpointext, offsets):
+def write_aspecthist_img(asphistimg, outfilename, aimpointext, offsets,
+                         overwrite=False):
     import datetime
 
     x_min, x_max, y_min, y_max = offsets
@@ -214,7 +215,7 @@ def write_aspecthist_img(asphistimg, outfilename, aimpointext, offsets):
                 aimpointext.header.comments[hdrkey]
             )
 
-    aspecthistfh.writeto(outfilename)
+    aspecthistfh.writeto(outfilename, overwrite=overwrite)
 
 
 if __name__ == '__main__':
@@ -287,6 +288,15 @@ if __name__ == '__main__':
         print('No GTI info in the specified file %s.' % gtifile)
     else:
         print('Found extension %s.' % gtiext.header['EXTNAME'])
+
+    # Check output file
+    if os.path.exists(outfilename):
+        if outfilename[0] == '!':
+            outfilename = outfilename[1:]
+            print('Overwriting file %s...')
+        else:
+            print('Output file %s exists (prefix with ! to overwrite)')
+            sys.exit(1)
 
     coords, dt = filter_gti(aimpointext, gtiext)
 
