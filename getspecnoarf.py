@@ -3,7 +3,7 @@
 Example usage:
 
 getspecnoarf.py nu90201039002A01_cl.evt reg=src.reg \\
-    indir=./ outdir=./ stemout=src \\
+    indir=. outdir=. stemout=src \\
     attfile=../auxil/nu90201039002_att.fits.gz
 """
 
@@ -16,8 +16,8 @@ if len(sys.argv) == 1:
     sys.exit(0)
 
 keywords = {
-    'indir': './',
-    'outdir': './',
+    'indir': '.',
+    'outdir': '.',
     'outprefix': None,
     'reg': None,
     'attfile': None
@@ -41,6 +41,25 @@ if not os.path.exists(keywords['reg']):
 if keywords['outprefix'] is None:
     keywords['outprefix'] = keywords['reg'].replace('.reg', '')
 
+# Check CALDB and CALDBCONFIG envs needed by the nustar pipeline tools
+if 'CALDB' not in os.environ:
+    print('You must set the $CALDB environment variable.')
+    print('Point to the folder with data, docs, and software subdirectories')
+    halt = True
+else:
+    caldbnustar = '%s/data/nustar/fpm/bcf' % os.environ['CALDB']
+    if not os.path.exists(caldbnustar):
+        print('NuSTAR CALDB not found at %s!' % caldbnustar)
+        halt = True
+
+if 'CALDBCONFIG' not in os.environ:
+    print('You must set the $CALDBCONFIG environment variable.')
+    print('This is usually at $CALDB/software/tools/caldb.config')
+    halt = True
+else:
+    if not os.path.exists(os.environ['CALDBCONFIG']):
+        print('CALDBCONFIG not found at %s!' % os.environ['CALDBCONFIG'])
+        halt = True
 
 if halt:
     sys.exit(1)
@@ -92,5 +111,5 @@ os.system(nuproductscmd.format(
 # os.system("rm -f " + dir + "event_cl/" +
 #           outdir + "/" + regcore + "_sr_g30.pha")
 os.system("""grppha {outdir}{stemout}_sr.pha \
-{outdir}{stemout}_sr_g30.pha 'group min 30 & exit'""".format(
+\\!{outdir}{stemout}_sr_g30.pha 'group min 30 & exit'""".format(
     indir=indir, outdir=outdir, stemout=stemout))

@@ -305,7 +305,7 @@ Error: bad pixel file not found, skipping:
 
     outfilename = outprefix + 'newinstrmap' + ab + '.fits'
     if os.path.exists(outfilename):
-        print('Error: output file exists!')
+        print('Error: output file %s exists!' % outfilename)
         halt = True
 
     # Check CALDB environment
