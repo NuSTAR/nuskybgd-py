@@ -1,130 +1,75 @@
-#!/usr/bin/env python3
 """
-fitab.py
-
-Fit a multi-component background model to spectra from several background
-regions and save the best-fit model to an xcm file. If the intended save file
-exists, will retry 99 times with a number (2 to 100) appended to the name.
-
-Usage:
-
-fitab.py bgdinfo.json [savefile=bgdparams.xcm]
-
-fitab.py --help  # print a sample bgdinfo.json
-
-Required in bgdinfo.json:
-
-    bgfiles - An array of spectra file names, extracted from background
-        regions, grouped so that bins have gaussian statistics.
-
-    regfiles - An array of region files for the background regions, in the
-        same order as bgfiles.
-
-    refimgf - Reference image file for creating region mask images, can be the
-        background aperture image file.
-
-    bgdapfiles - Dictionary with 'A' and 'B' keys, pointing to background
-        aperture image files for each focal plane module.
-
-    bgddetfiles - Dictionary with 'A' and 'B' keys, pointing to lists of 4
-        detector mask image files for each focal plane module.
+Functions for nuskybgd modelling, many involving interacting with xspec.
 """
-
+import xspec
 import os
-import sys
 import json
 import numpy as np
-import xspec
-# !!Load xspec before astropy!! When testing using latest xspec (6.26.1) and
-# astropy (3.2.1), xspec has cfitsio with SONAME 8, and loading astropy before
-# it throws an error when loading spectrum file, stating that the loaded
-# cfitsio library has SONAME 7. Is it astropy that's been compiled with an
-# older version of cfitsio, causing a problem if the older library loads
-# first? Because the only library in the rpath is heasoft's latest cfitsio
-# library.
-import astropy.io.fits as pf
-import pyregion
+from . import util
 
 
-_NUSKYBGD_AUX_ENV = 'NUSKYBGD_AUXIL'
-
-EXAMPLE_BGDINFO = """
-Sample bgdinfo.json:
-
-{
-    "bgfiles": [
-        "bgd1A_sr_g30.pha", "bgd1B_sr_g30.pha",
-        "bgd2A_sr_g30.pha", "bgd2B_sr_g30.pha",
-        "bgd3A_sr_g30.pha", "bgd3B_sr_g30.pha"
-    ],
-
-    "regfiles": [
-        "bgd1A.reg", "bgd1B.reg",
-        "bgd2A.reg", "bgd2B.reg",
-        "bgd3A.reg", "bgd3B.reg"
-    ],
-
-    "refimgf": "bgdapA.fits",
-
-    "bgdapfiles": {
-        "A": "bgdapA.fits",
-        "B": "bgdapB.fits"
-    },
-
-    "bgddetfiles": {
-        "A": [
-            "det0Aim.fits",
-            "det1Aim.fits",
-            "det2Aim.fits",
-            "det3Aim.fits"
-        ],
-        "B": [
-            "det0Bim.fits",
-            "det1Bim.fits",
-            "det2Bim.fits",
-            "det3Bim.fits"
-        ]
-    }
-}
-"""
-
-
-def read_model_template(fpm):
-    if fpm not in ('A', 'B'):
-        print('Error: FPM must be A or B')
+def check_bgdinfofile(bgdinfofile):
+    """
+    Check that the background info file has the required items.
+    """
+    if not os.path.exists(bgdinfofile):
+        print('Error: file %s not found.' % bgdinfofile)
         return False
 
-    auxildir = os.environ['NUSKYBGD_AUXIL']
-    fh = open('%s/ratios%s.json' % (auxildir, fpm))
+    bgdinfo = json.loads(open(bgdinfofile).read())
 
-    models = json.loads(fh.read())
+    problem = False
+    for key in (
+        'bgfiles', 'regfiles', 'refimgf', 'bgdapfiles', 'bgddetfiles'
+    ):
+        if key not in bgdinfo:
+            problem = True
+            print('%s not found in background info file.' % key)
 
-    print('Loaded XSPEC models template: %s' % models['name'])
-    print('It has the following components:')
+    # Same number of items in bgfiles and regfiles:
+    if len(bgdinfo['bgfiles']) != len(bgdinfo['regfiles']):
+        problem = True
+        print('bgfiles and regfiles must have the same number of entries.')
 
-    for m in models['models']:
-        print(m['name'])
-        print(m['formula'])
+    # A and B keys in bgdapfiles and bgddetfiles
+    if ('A' not in bgdinfo['bgdapfiles'] or
+            'B' not in bgdinfo['bgdapfiles'] or
+            'A' not in bgdinfo['bgddetfiles'] or
+            'B' not in bgdinfo['bgddetfiles']):
+        problem = True
+        print('bgdapfiles and bgddetfiles must have A and B keys.')
 
+    # Check files exist
+    queue = []
+    for _ in bgdinfo['bgfiles']:
+        if isinstance(_, str):
+            queue.append(_)
 
-def fpm_parse(keyword):
-    if keyword not in ('FPMA', 'FPMB'):
+    for _ in bgdinfo['regfiles']:
+        if isinstance(_, str):
+            queue.append(_)
+
+    for _ in bgdinfo['bgddetfiles']['A']:
+        if isinstance(_, str):
+            queue.append(_)
+
+    for _ in bgdinfo['bgddetfiles']['B']:
+        if isinstance(_, str):
+            queue.append(_)
+
+    queue.append(bgdinfo['refimgf'])
+    queue.append(bgdinfo['bgdapfiles']['A'])
+    queue.append(bgdinfo['bgdapfiles']['B'])
+
+    for _ in queue:
+        if not os.path.exists(_):
+            problem = True
+            print('Error: file %s not found.' % _)
+
+    if problem:
         return False
     else:
-        return keyword[-1]
-
-
-def mask_from_region(regfile, refimg):
-    """
-    Create a pixel mask for regfile based on the image WCS info in refimg.
-
-    Uses the pyregion module. Please keep to using circle, box, and ellipse
-    shapes in DS9, fk5 format to avoid unexpected behavior.
-    """
-    fh = pf.open(refimg)
-    reg = pyregion.open(regfile)
-    mask = reg.get_mask(hdu=fh[0])
-    return mask
+        return bgdinfo
 
 
 def addmodel_apbgd(presets, refspec, bgdapimwt, model_num, model_name='apbgd'):
@@ -167,7 +112,7 @@ def addmodel_apbgd(presets, refspec, bgdapimwt, model_num, model_name='apbgd'):
 
     for i in range(xspec.AllData.nSpectra):
         spec = xspec.AllData(i + 1)
-        fpm = fpm_parse(spec.fileinfo('INSTRUME'))
+        fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
         m = xspec.AllModels(i + 1, model_name)
         if i == refspec['A'] or i == refspec['B']:
             m.cutoffpl.PhoIndex.values = mod_apbgd['cutoffpl'][fpm]['phoindex']
@@ -255,7 +200,7 @@ def addmodel_intbgd(presets, refspec, bgddetimsum, model_num,
     # parameters for apec and 3 parameters for lorentz.
     for i in range(xspec.AllData.nSpectra):
         spec = xspec.AllData(i + 1)
-        fpm = fpm_parse(spec.fileinfo('INSTRUME'))
+        fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
         m = xspec.AllModels(i + 1, model_name)
 
         # Reference spectrum
@@ -397,7 +342,7 @@ def addmodel_fcxb(refspec, bgddetimsum, model_num,
 
     for i in range(xspec.AllData.nSpectra):
         spec = xspec.AllData(i + 1)
-        fpm = fpm_parse(spec.fileinfo('INSTRUME'))
+        fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
         m = xspec.AllModels(i + 1, model_name)
 
         m.cutoffpl.PhoIndex.link = '%s:p%d' % (
@@ -448,7 +393,7 @@ def addmodel_intn(presets, refspec, bgddetimsum, model_num, model_name='intn'):
 
     for i in range(xspec.AllData.nSpectra):
         spec = xspec.AllData(i + 1)
-        fpm = fpm_parse(spec.fileinfo('INSTRUME'))
+        fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
         m = xspec.AllModels(i + 1, model_name)
 
         m.bknpower.PhoIndx1.values = mod_intn['bknpower'][fpm]['phoindx1']
@@ -507,218 +452,3 @@ def save_xcm(prefix='bgdparams'):
         else:
             i += 1
     return False
-
-
-def check_bgdinfofile(bgdinfofile):
-    """
-    Check that the background info file has the required items.
-    """
-    if not os.path.exists(bgdinfofile):
-        print('Error: file %s not found.' % bgdinfofile)
-        return False
-
-    bgdinfo = json.loads(open(bgdinfofile).read())
-
-    problem = False
-    for key in (
-        'bgfiles', 'regfiles', 'refimgf', 'bgdapfiles', 'bgddetfiles'
-    ):
-        if key not in bgdinfo:
-            problem = True
-            print('%s not found in background info file.' % key)
-
-    # Same number of items in bgfiles and regfiles:
-    if len(bgdinfo['bgfiles']) != len(bgdinfo['regfiles']):
-        problem = True
-        print('bgfiles and regfiles must have the same number of entries.')
-
-    # A and B keys in bgdapfiles and bgddetfiles
-    if ('A' not in bgdinfo['bgdapfiles'] or
-            'B' not in bgdinfo['bgdapfiles'] or
-            'A' not in bgdinfo['bgddetfiles'] or
-            'B' not in bgdinfo['bgddetfiles']):
-        problem = True
-        print('bgdapfiles and bgddetfiles must have A and B keys.')
-
-    # Check files exist
-    queue = []
-    for _ in bgdinfo['bgfiles']:
-        if isinstance(_, str):
-            queue.append(_)
-
-    for _ in bgdinfo['regfiles']:
-        if isinstance(_, str):
-            queue.append(_)
-
-    for _ in bgdinfo['bgddetfiles']['A']:
-        if isinstance(_, str):
-            queue.append(_)
-
-    for _ in bgdinfo['bgddetfiles']['B']:
-        if isinstance(_, str):
-            queue.append(_)
-
-    queue.append(bgdinfo['refimgf'])
-    queue.append(bgdinfo['bgdapfiles']['A'])
-    queue.append(bgdinfo['bgdapfiles']['B'])
-
-    for _ in queue:
-        if not os.path.exists(_):
-            problem = True
-            print('Error: file %s not found.' % _)
-
-    if problem:
-        return False
-    else:
-        return bgdinfo
-
-
-if __name__ == '__main__':
-    if len(sys.argv) not in (2, 3):
-        print(__doc__)
-        sys.exit(0)
-
-    if sys.argv[1] == '--help':
-        print(__doc__)
-        print(EXAMPLE_BGDINFO)
-        sys.exit(0)
-
-    keywords = {
-        'savefile': None
-    }
-
-    for _ in sys.argv[2:]:
-        arg = _.split('=')
-        if arg[0] in keywords:
-            keywords[arg[0]] = arg[1]
-
-    # Check auxil dir setting
-    if _NUSKYBGD_AUX_ENV not in os.environ:
-        print('Please set the NUSKYBGD_AUXIL environment variable first.')
-        sys.exit(1)
-
-    # Check auxil dir is OK...
-    if not os.path.exists('%s/ratios.json' % os.environ[_NUSKYBGD_AUX_ENV]):
-        print('Error: ratios.json not in %s' % os.environ[_NUSKYBGD_AUX_ENV])
-
-    auxildir = os.environ[_NUSKYBGD_AUX_ENV]
-
-    # Input params
-    bgdinfofile = sys.argv[1]
-
-    bgdinfo = check_bgdinfofile(bgdinfofile)
-
-    if bgdinfo is False:
-        print('Error: background info file %s problem.' % bgdinfofile)
-        sys.exit(1)
-
-    ratios = json.loads(open('%s/ratios.json' % auxildir).read())
-    # In [45]: ratiosA.keys()
-    # Out[45]: dict_keys(['name', 'comment', 'models'])
-
-    # bgfiles and regfiles must have the same ordering
-    bgfiles = bgdinfo['bgfiles']
-    regfiles = bgdinfo['regfiles']
-    refimgf = bgdinfo['refimgf']
-    bgdapfiles = bgdinfo['bgdapfiles']
-    bgddetfiles = bgdinfo['bgddetfiles']
-
-    bgdapim = {}
-    bgdapim['A'] = pf.open(bgdapfiles['A'])[0].data
-    bgdapim['B'] = pf.open(bgdapfiles['B'])[0].data
-
-    bgddetim = {}
-    bgddetim['A'] = [
-        pf.open(bgddetfiles['A'][0])[0].data,
-        pf.open(bgddetfiles['A'][1])[0].data,
-        pf.open(bgddetfiles['A'][2])[0].data,
-        pf.open(bgddetfiles['A'][3])[0].data
-    ]
-    bgddetim['B'] = [
-        pf.open(bgddetfiles['B'][0])[0].data,
-        pf.open(bgddetfiles['B'][1])[0].data,
-        pf.open(bgddetfiles['B'][2])[0].data,
-        pf.open(bgddetfiles['B'][3])[0].data
-    ]
-
-    spectra = []
-
-    xspec.DataManager.clear(0)  # Clear any existing loaded data
-
-    # Load each spectrum as a new data group
-    for i in range(len(bgfiles)):
-        spectra.append(xspec.AllData('{num}:{num} {file}'.format(
-            num=i + 1,
-            file=bgfiles[i])))
-
-    # Check for valid INSTRUME keyword in spectrum header: need this to
-    # determine which FPM is used.
-
-    # Reference spectrum's index for the linked model parameters
-    # 0-based; note that xspec.AllData() is 1-based
-    refspec = {'A': None, 'B': None}
-
-    for i in range(xspec.AllData.nSpectra):
-        spec = xspec.AllData(i + 1)
-
-        try:
-            fpm = fpm_parse(spec.fileinfo('INSTRUME'))
-            if fpm is False:
-                print('Spectrum %s does not have valid INSTRUME keyword.' %
-                      spec.fileName)
-            else:
-                if fpm == 'A' and refspec['A'] is None:
-                    refspec['A'] = i
-                elif fpm == 'B' and refspec['B'] is None:
-                    refspec['B'] = i
-
-        except Exception:
-            print(Exception)
-            print('Spectrum %s does not have the INSTRUME keyword.'
-                  % spec.fileName)
-
-    # Specify the RMF and ARF files for the different model sources
-    for i in range(xspec.AllData.nSpectra):
-        spec = xspec.AllData(i + 1)
-        spec.multiresponse[1] = spec.response.rmf  # 2:apbgd
-        spec.multiresponse[2] = spec.response.rmf  # 3:intbgd
-        spec.multiresponse[3] = spec.response.rmf  # 4:fcxb
-        spec.multiresponse[4] = '%s/diag.rmf' % auxildir  # 5:intn
-        spec.multiresponse[5] = spec.response.rmf  # 6:grxe
-        spec.multiresponse[1].arf = '%s/be.arf' % auxildir  # 2:apbgd
-        spec.multiresponse[3].arf = '%s/fcxb%s.arf' % (
-            auxildir, fpm_parse(spec.fileinfo('INSTRUME')))  # 4:fcxb
-        spec.multiresponse[5].arf = '%s/be.arf' % auxildir  # 6:grxe
-
-    # Compute aperture image and detector mask based weights using each
-    # background region's mask
-
-    # Each background spectrum has a list of 4 values associated with each
-    # CCD: number of pixels in the region mask.
-    bgddetimsum = []
-
-    # Each background spectrum has a single value that is the sum of the
-    # aperture image in the region mask.
-    bgdapimwt = []
-
-    for i in range(xspec.AllData.nSpectra):
-        spec = xspec.AllData(i + 1)
-        fpm = fpm_parse(spec.fileinfo('INSTRUME'))
-        regmask = mask_from_region(regfiles[i], refimgf)
-        detnpix = [np.sum(regmask * detim) for detim in bgddetim[fpm]]
-        bgddetimsum.append(detnpix)
-        bgdapimwt.append(np.sum(regmask * bgdapim[fpm]))
-
-    addmodel_apbgd(ratios, refspec, bgdapimwt, 2)
-    addmodel_intbgd(ratios, refspec, bgddetimsum, 3)
-    addmodel_fcxb(refspec, bgddetimsum, 4)
-    addmodel_intn(ratios, refspec, bgddetimsum, 5)
-
-    run_fit()
-
-    if keywords['savefile'] is None:
-        save_xcm()
-    else:
-        save_xcm(prefix=keywords['savefile'].strip())
-
-    sys.exit(0)
