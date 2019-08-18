@@ -72,8 +72,8 @@ class CalDB:
         indexfile = '%s/data/nustar/fpm/caldb.indx' % self._CalDBPath
         if not os.path.exists(indexfile):
             print('Error: CALDB index file not found.')
-            return False
-        self._fh = pf.open(indexfile)
+            return None
+        return pf.open(indexfile)
 
     # ------------------------------------
 
@@ -148,7 +148,7 @@ class CalDB:
         The CALDB files are typically named with dates and versions in such a
         way that the last entry after sorting is the latest file.
         """
-        table = self._fh[1].data
+        table = self._index[1].data
 
         halt = False
         for kw in ('TELESCOP', 'INSTRUME', 'CAL_CNAM',

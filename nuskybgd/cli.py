@@ -3,6 +3,7 @@ Functions to handle using nuskybgd tasks from the command line. These
 functions can also be used in Python, either in an interactive session or in a
 script, by passing an arguments list to them in lieu of sys.argv.
 """
+from . import conf
 
 def run(args=[]):
     """
@@ -22,8 +23,6 @@ def run(args=[]):
         print(run.__doc__)
         print('\n'.join(list('        %s' % _ for _ in sorted(tasks.keys()))))
         return 0
-
-
 
     if args[1] in tasks:
         return tasks[args[1]](args[1:])
@@ -48,6 +47,9 @@ def absrmf(args=[]):
     detabsfile is the detector absorption file to multiply the RMF with, set
     it to CALDB (default) to use the latest CALDB file(s).
     """
+    if conf.block() is True:
+        return 1
+
     import os
     from . import rmf
 
@@ -129,6 +131,9 @@ def fitab(args=[]):
         bgddetfiles - Dictionary with 'A' and 'B' keys, pointing to lists of 4
             detector mask image files for each focal plane module.
     """
+    if conf.block() is True:
+        return 1
+
     import os
     import json
     import xspec
@@ -136,7 +141,6 @@ def fitab(args=[]):
     import astropy.io.fits as pf
     from . import util
     from . import model as numodel
-    from . import conf
 
     EXAMPLE_BGDINFO = """
 Sample bgdinfo.json:
@@ -196,16 +200,8 @@ Sample bgdinfo.json:
         if arg[0] in keywords:
             keywords[arg[0]] = arg[1]
 
-    # Check auxil dir setting
-    if conf._NUSKYBGD_AUX_ENV not in os.environ:
-        print('Please set the NUSKYBGD_AUXIL environment variable first.')
-        return 1
 
-    # Check auxil dir is OK...
-    if not os.path.exists('%s/ratios.json' % os.environ[conf._NUSKYBGD_AUX_ENV]):
-        print('Error: ratios.json not in %s' % os.environ[conf._NUSKYBGD_AUX_ENV])
-
-    auxildir = os.environ[conf._NUSKYBGD_AUX_ENV]
+    auxildir = conf._AUX_DIR
 
     # Input params
     bgdinfofile = args[1]
