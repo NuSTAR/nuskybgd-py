@@ -88,30 +88,72 @@ def make_absrmf(evtfile, outfile,
         rmffh = pf.open(rmflist[idet])
         detabsfh = pf.open(detabslist[idet])
 
-        absmatrix = (rmffh['MATRIX'].data.field('MATRIX') *
-                     detabsfh[idet + 1].data.field('DETABS'))
+        # Modifies rmffh['MATRIX'] in place
+        add_abs_to_rmf_hdu(detabsfh[idet + 1], rmffh['MATRIX'])
 
         # Create the output file
-        absrmffh = pf.open(rmflist[0])
-        timestamp = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
-        absrmffh[0].header['DATE'] = (
-            timestamp,
-            'File creation date (YYYY-MM-DDThh:mm:ss UTC)'
-        )
-        absrmffh[1].header['DATE'] = (
-            timestamp,
-            'File creation date (YYYY-MM-DDThh:mm:ss UTC)'
-        )
-        absrmffh[1].header['HISTORY'] = (
-            'Modified RMF to include DETABS, using files %s and %s' % (
+        hdu_timestamp(rmffh['MATRIX'])
+        history_msg = (
+            'Modified RMF which includes DETABS, using files %s and %s' % (
                 rmflist[idet], detabslist[idet]
             )
         )
-        absrmffh['MATRIX'].data['MATRIX'] = absmatrix
-        absrmffh.writeto(outfilename % (idet, ab),
-                         checksum=True, overwrite=overwrite)
+        hdu_history(rmffh['MATRIX'], history_msg)
+        write_fits(rmffh, outfilename % (idet, ab), overwrite=overwrite)
 
     return True
+
+
+def hdu_timestamp(hdu):
+    """
+    Update the DATE keyword of the input HDU header to current time. This
+    modifies the input object 'hdu'.
+    """
+    timestamp = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+    hdu.header['DATE'] = (
+        timestamp,
+        'File creation date (YYYY-MM-DDThh:mm:ss UTC)'
+    )
+
+
+def hdu_history(hdu, message):
+    """
+    Append HISTORY keyword to the input HDU header. This modifies the input
+    object 'hdu'.
+    """
+    hdu.header['HISTORY'] = message
+
+
+def write_fits(hdulist, outfile, comment=None, history=None, overwrite=False):
+    """
+    Write the HDUList to file.
+
+    Control some actions to be taken for all files written by nuskybgd.
+    """
+    hdulist.writeto(outfile, checksum=True, overwrite=overwrite)
+
+
+def add_abs_to_rmf_hdu(detabshdu, rmfhdu):
+    """
+    Add detector absorption to response matrix. The input 'rmfhdu' is
+    modified.
+
+    Inputs:
+
+    detabshdu -- HDU with BinTable 'DETABS' containing absorption data
+    rmfhdu -- HDU with BinTable 'MATRIX' containing RMF data
+    """
+    if not (isinstance(detabshdu, pf.hdu.table.BinTableHDU) and
+            isinstance(rmfhdu, pf.hdu.table.BinTableHDU)):
+        raise TypeError('Inputs must be BinTable HDUs.')
+
+    try:
+        absmatrix = (rmfhdu.data['MATRIX'] *
+                         detabshdu.data['DETABS'])
+    except KeyError:
+        raise KeyError('MATRIX and DETABS columns are required.')
+
+    rmfhdu.data['MATRIX'] = absmatrix
 
 
 if __name__ == '__main__':
