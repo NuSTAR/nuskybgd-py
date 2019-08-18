@@ -8,7 +8,9 @@ import sys
 
 class CalDB:
     """
-    CalDB class to look up appropriate CALDB file.
+    CalDB class to look up appropriate CALDB file. The logic for selecting the
+    file is in getcaldbfile(). Various functions such as getDETABS() exist,
+    calling getcaldbfile() with certain preset arguments.
 
     Example (Python)
 
@@ -110,6 +112,24 @@ class CalDB:
     def getAPERTURE(self, instrument, obsutctime):
         return self.getcaldbfile(
             self.telescope, instrument, 'APERTURE', None, obsutctime)
+
+    def getRMF(self, instrument, detnam, obsutctime):
+        """
+        First look for the GRPRMF file, then look for the RMF file for the
+        specified DETNAM.
+        """
+        idet = int(detnam[-1])
+        grprmffile = self.getGRPRMF(instrument, detnam, obsutctime)
+        grprmfpath = '%s/%s' % (self._CalDBPath, grprmffile)
+        grprmffh = pf.open(grprmfpath)
+        if len(grprmffh[idet + 1].data) > 1:
+            print('Warning: more than one RMF in GRPRMF %s for %s. '
+                  'Using first entry.' % (grprmffile, detnam))
+        rmfdir = os.path.dirname(grprmfpath)
+        return ('%s/%s' % (
+            rmfdir,
+            grprmffh[idet + 1].data[0].field('RMFFILE')
+        ))
 
     # ------------------------------------
 
