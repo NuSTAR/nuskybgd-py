@@ -6,6 +6,7 @@ import os
 import json
 import numpy as np
 from . import util
+from . import conf
 
 
 def check_bgdinfofile(bgdinfofile):
@@ -72,6 +73,168 @@ def check_bgdinfofile(bgdinfofile):
         return bgdinfo
 
 
+def load_bgdimgs(bgdinfo):
+    """
+    Retrieve and return the aspect-projected background maps.
+
+    Input:
+
+    bgdinfo - This should come from check_bgdinfofile().
+
+    Output:
+
+    (bgdapim, bgddetim) - Both dictionaries.
+
+    bgdapim = {'A': numpy.ndarray, 'B': numpy.ndarray}
+    bgddetim = {'A': [numpy.ndarray], 'B': [numpy.ndarray]}
+    """
+    import astropy.io.fits as pf
+
+    bgdapfiles = bgdinfo['bgdapfiles']
+    bgddetfiles = bgdinfo['bgddetfiles']
+
+    bgdapim = {}
+    bgdapim['A'] = pf.open(bgdapfiles['A'])[0].data
+    bgdapim['B'] = pf.open(bgdapfiles['B'])[0].data
+
+    bgddetim = {}
+    bgddetim['A'] = [
+        pf.open(bgddetfiles['A'][0])[0].data,
+        pf.open(bgddetfiles['A'][1])[0].data,
+        pf.open(bgddetfiles['A'][2])[0].data,
+        pf.open(bgddetfiles['A'][3])[0].data
+    ]
+    bgddetim['B'] = [
+        pf.open(bgddetfiles['B'][0])[0].data,
+        pf.open(bgddetfiles['B'][1])[0].data,
+        pf.open(bgddetfiles['B'][2])[0].data,
+        pf.open(bgddetfiles['B'][3])[0].data
+    ]
+
+    return bgdapim, bgddetim
+
+
+def get_keyword_specfiles(specfiles, keyword, ext=0):
+    """
+    Get values of specified keyword from a list of spectra files.
+
+    Input:
+
+    specfiles -- List of spectra file names.
+    keyword -- Header keyword to check.
+    ext -- Extension index or name.
+
+    Output:
+
+    List of keyword values.
+
+    If either ext or keyword could not be found, that entry will be None. If
+    an input spectrum file does not exist, an OSError bubbles up.
+    """
+    values = []
+
+    for i in range(len(specfiles)):
+
+        values.append(
+            util.fits_checkkeyword(
+                specfiles[i], keyword, ext=ext, silent=True))
+
+    return values
+
+
+def get_keyword_xspecdata(keyword):
+    """
+    Get values of specified keyword from currently loaded Xspec data files.
+
+    Input:
+
+    keyword -- Header keyword to check.
+
+    Output:
+
+    List of keyword values.
+
+    If the specified keyword is not found, that entry will be None.
+    """
+    values = []
+
+    for i in range(xspec.AllData.nSpectra):
+        spec = xspec.AllData(i + 1)
+
+        try:
+            values.append(spec.fileinfo(keyword))
+
+        except KeyError:
+            print('Spectrum %s does not have the %s keyword.'
+                  % (spec.fileName, keyword))
+            values.append(None)
+
+    return values
+
+
+def get_refspec(instlist):
+    """
+    Determine the list indices of reference spectra files. The first entry of
+    each module (inferred from the INSTRUME keyword) is designated the
+    reference spectrum. If no spectrum from a module is encountered, it will
+    have an entry None. Note that in xspec.AllData(i), the index i is
+    1-based.
+
+    Input:
+
+    instlist -- List of INSTRUME keyword values. This can be retrieved from a
+        list of spectra files using get_keyword_specfiles() or from the loaded
+        xspec.AllData using get_keyword_xspecdata().
+
+    Output:
+
+    {'A': None, 'B': None} where None is replaced with the list index of the
+    {'first spectrum encountered for each module.
+
+    An Exception is raised if the focal plane module could not be determined
+    for any of the entries in specfiles.
+    """
+    refspec = {'A': None, 'B': None}
+
+    for i in range(len(instlist)):
+
+        fpm = util.fpm_parse(instlist[i])
+
+        if fpm is False:
+            raise Exception(
+                'Could not determine focal plane module for spectrum #%d.' %
+                i)
+        else:
+            if fpm == 'A' and refspec['A'] is None:
+                refspec['A'] = i
+            elif fpm == 'B' and refspec['B'] is None:
+                refspec['B'] = i
+
+    return refspec
+
+
+def addspec_bgd(specfiles):
+    """
+    Clear all data and add new spectra data files, each in their own data
+    group. Afterward check the number of loaded spectra against length of
+    input list. If not all spectra loaded, an Exception is raised.
+
+    Input:
+
+    specfiles -- List of files to load.
+    """
+    xspec.DataManager.clear(0)  # Clear any existing loaded data
+
+    # Load each spectrum as a new data group
+    for i in range(len(specfiles)):
+        xspec.AllData('{num}:{num} {file}'.format(
+            num=i + 1,
+            file=specfiles[i]))
+
+    if xspec.AllData.nSpectra != len(specfiles):
+        raise Exception('Not all requested spectra loaded, cannot proceed!')
+
+
 def addmodel_apbgd(presets, refspec, bgdapimwt, model_num, model_name='apbgd'):
     """
     Xspec model component 2: apbgd (aperture image background)
@@ -107,6 +270,12 @@ def addmodel_apbgd(presets, refspec, bgdapimwt, model_num, model_name='apbgd'):
     same as another model.
     """
     mod_apbgd = presets['models'][0]['components']
+
+    # Add the response for this source.
+    for i in range(xspec.AllData.nSpectra):
+        s = xspec.AllData(i + 1)
+        s.multiresponse[model_num - 1] = s.response.rmf
+        s.multiresponse[model_num - 1].arf = '%s/be.arf' % conf._AUX_DIR
 
     xspec.Model('cutoffpl', model_name, model_num)
 
@@ -192,6 +361,11 @@ def addmodel_intbgd(presets, refspec, bgddetimsum, model_num,
     the same as another model.
     """
     mod_intbgd = presets['models'][1]['components']
+
+    # Add the response for this source.
+    for i in range(xspec.AllData.nSpectra):
+        s = xspec.AllData(i + 1)
+        s.multiresponse[model_num - 1] = s.response.rmf
 
     xspec.Model('apec' + '+lorentz' * (len(mod_intbgd) - 1),
                 model_name, model_num)
@@ -336,6 +510,13 @@ def addmodel_fcxb(refspec, bgddetimsum, model_num,
     apbgd_name - Model component name of the aperture background model, must
     have been already added.
     """
+    # Add the response for this source.
+    for i in range(xspec.AllData.nSpectra):
+        s = xspec.AllData(i + 1)
+        s.multiresponse[model_num - 1] = s.response.rmf
+        s.multiresponse[model_num - 1].arf = '%s/fcxb%s.arf' % (
+            conf._AUX_DIR, util.fpm_parse(s.fileinfo('INSTRUME')))
+
     xspec.Model('cutoffpl', model_name, model_num)
 
     mod_fcxb_factor = 0.002353 * 1.5 * (2.45810736 / 3500 / 1000)**2
@@ -389,6 +570,11 @@ def addmodel_intn(presets, refspec, bgddetimsum, model_num, model_name='intn'):
     """
     mod_intn = presets['models'][3]['components']
 
+    # Add the response for this source.
+    for i in range(xspec.AllData.nSpectra):
+        s = xspec.AllData(i + 1)
+        s.multiresponse[model_num - 1] = '%s/diag.rmf' % conf._AUX_DIR
+
     xspec.Model('bknpower', model_name, model_num)
 
     for i in range(xspec.AllData.nSpectra):
@@ -416,6 +602,17 @@ def addmodel_intn(presets, refspec, bgddetimsum, model_num, model_name='intn'):
                 model_name,
                 4 * refspec[fpm] + 4
             )
+
+
+def addmodel_grxe(presets, refspec, model_num, model_name='grxe'):
+    """
+    Galactic ridge X-ray emission model, placeholder for now.
+    """
+    # Add the response for this source.
+    for i in range(xspec.AllData.nSpectra):
+        s = xspec.AllData(i + 1)
+        s.multiresponse[model_num - 1] = s.response.rmf
+        s.multiresponse[model_num - 1].arf = '%s/be.arf' % conf._AUX_DIR
 
 
 def run_fit():
