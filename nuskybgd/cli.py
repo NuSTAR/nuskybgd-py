@@ -207,6 +207,8 @@ Sample bgdinfo.json:
     bgdinfofile = args[1]
 
     bgdinfo = numodel.check_bgdinfofile(bgdinfofile)
+    regfiles = bgdinfo['regfiles']
+    refimgf = bgdinfo['refimgf']
 
     if bgdinfo is False:
         print('Error: background info file %s problem.' % bgdinfofile)
@@ -216,82 +218,16 @@ Sample bgdinfo.json:
     # In [45]: ratiosA.keys()
     # Out[45]: dict_keys(['name', 'comment', 'models'])
 
-    # bgfiles and regfiles must have the same ordering
-    bgfiles = bgdinfo['bgfiles']
-    regfiles = bgdinfo['regfiles']
-    refimgf = bgdinfo['refimgf']
-    bgdapfiles = bgdinfo['bgdapfiles']
-    bgddetfiles = bgdinfo['bgddetfiles']
+    numodel.addspec_bgd(bgdinfo['bgfiles'])
 
-    bgdapim = {}
-    bgdapim['A'] = pf.open(bgdapfiles['A'])[0].data
-    bgdapim['B'] = pf.open(bgdapfiles['B'])[0].data
-
-    bgddetim = {}
-    bgddetim['A'] = [
-        pf.open(bgddetfiles['A'][0])[0].data,
-        pf.open(bgddetfiles['A'][1])[0].data,
-        pf.open(bgddetfiles['A'][2])[0].data,
-        pf.open(bgddetfiles['A'][3])[0].data
-    ]
-    bgddetim['B'] = [
-        pf.open(bgddetfiles['B'][0])[0].data,
-        pf.open(bgddetfiles['B'][1])[0].data,
-        pf.open(bgddetfiles['B'][2])[0].data,
-        pf.open(bgddetfiles['B'][3])[0].data
-    ]
-
-    spectra = []
-
-    xspec.DataManager.clear(0)  # Clear any existing loaded data
-
-    # Load each spectrum as a new data group
-    for i in range(len(bgfiles)):
-        spectra.append(xspec.AllData('{num}:{num} {file}'.format(
-            num=i + 1,
-            file=bgfiles[i])))
-
-    # Check for valid INSTRUME keyword in spectrum header: need this to
-    # determine which FPM is used.
-
-    # Reference spectrum's index for the linked model parameters
-    # 0-based; note that xspec.AllData() is 1-based
-    refspec = {'A': None, 'B': None}
-
-    for i in range(xspec.AllData.nSpectra):
-        spec = xspec.AllData(i + 1)
-
-        try:
-            fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
-            if fpm is False:
-                print('Spectrum %s does not have valid INSTRUME keyword.' %
-                      spec.fileName)
-            else:
-                if fpm == 'A' and refspec['A'] is None:
-                    refspec['A'] = i
-                elif fpm == 'B' and refspec['B'] is None:
-                    refspec['B'] = i
-
-        except Exception:
-            print(Exception)
-            print('Spectrum %s does not have the INSTRUME keyword.'
-                  % spec.fileName)
-
-    # Specify the RMF and ARF files for the different model sources
-    for i in range(xspec.AllData.nSpectra):
-        spec = xspec.AllData(i + 1)
-        spec.multiresponse[1] = spec.response.rmf  # 2:apbgd
-        spec.multiresponse[2] = spec.response.rmf  # 3:intbgd
-        spec.multiresponse[3] = spec.response.rmf  # 4:fcxb
-        spec.multiresponse[4] = '%s/diag.rmf' % auxildir  # 5:intn
-        spec.multiresponse[5] = spec.response.rmf  # 6:grxe
-        spec.multiresponse[1].arf = '%s/be.arf' % auxildir  # 2:apbgd
-        spec.multiresponse[3].arf = '%s/fcxb%s.arf' % (
-            auxildir, util.fpm_parse(spec.fileinfo('INSTRUME')))  # 4:fcxb
-        spec.multiresponse[5].arf = '%s/be.arf' % auxildir  # 6:grxe
+    # instrlist = numodel.get_keyword_specfiles(bgdinfo['bgfiles'],
+    #     'INSTRUME', ext='SPECTRUM')
+    instrlist = numodel.get_keyword_xspecdata('INSTRUME')
+    refspec = numodel.get_refspec(instrlist)
 
     # Compute aperture image and detector mask based weights using each
     # background region's mask
+    bgdapim, bgddetim = numodel.load_bgdimgs(bgdinfo)
 
     # Each background spectrum has a list of 4 values associated with each
     # CCD: number of pixels in the region mask.
