@@ -227,23 +227,19 @@ Sample bgdinfo.json:
 
     # Compute aperture image and detector mask based weights using each
     # background region's mask
+    regmask = util.mask_from_region(bgdinfo['regfiles'],
+                                    bgdinfo['refimgf'])
     bgdapim, bgddetim = numodel.load_bgdimgs(bgdinfo)
 
     # Each background spectrum has a list of 4 values associated with each
     # CCD: number of pixels in the region mask.
-    bgddetimsum = []
+    bgddetweights = numodel.calc_det_weights(bgddetim, regmask, instrlist)
+    bgddetimsum = bgddetweights['sum']
 
     # Each background spectrum has a single value that is the sum of the
     # aperture image in the region mask.
-    bgdapimwt = []
-
-    for i in range(xspec.AllData.nSpectra):
-        spec = xspec.AllData(i + 1)
-        fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
-        regmask = util.mask_from_region(regfiles[i], refimgf)
-        detnpix = [np.sum(regmask * detim) for detim in bgddetim[fpm]]
-        bgddetimsum.append(detnpix)
-        bgdapimwt.append(np.sum(regmask * bgdapim[fpm]))
+    bgdapweights = numodel.calc_ap_weights(bgdapim, regmask, instrlist)
+    bgdapimwt = bgdapweights['sum']
 
     numodel.addmodel_apbgd(ratios, refspec, bgdapimwt, 2)
     numodel.addmodel_intbgd(ratios, refspec, bgddetimsum, 3)
