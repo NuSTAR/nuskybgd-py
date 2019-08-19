@@ -213,6 +213,59 @@ def get_refspec(instlist):
     return refspec
 
 
+def calc_det_weights(detmasks, regmasks, fpmlist):
+    """
+    Calculate weights by detector area in the masks.
+
+    Input:
+
+    detmasks -- Detector masks {'A': [], 'B': []} with lists of images for
+        each detector.
+    regmasks -- List of region mask images.
+    fpmlist -- List of modules corresponding to each region.
+
+    Output:
+
+    {'sum': [], 'fraction': [[]]} List of detector area in each region per
+    detector; list of area fraction on each detector for every region.
+    """
+    res = {'sum': [], 'fraction': []}
+
+    for reg, instr in zip(regmasks, fpmlist):
+        fpm = util.fpm_parse(instr)
+        det_areas = [np.sum(reg * detim) for detim in detmasks[fpm]]
+        tot = np.sum(det_areas)
+        det_frac = det_areas / tot
+        res['sum'].append(det_areas)
+        res['fraction'].append(det_frac)
+
+    return res
+
+
+def calc_ap_weights(apimgs, regmasks, fpmlist):
+    """
+    Calculate sum of aperture image in the masks.
+
+    Input:
+
+    apimgs -- Detector masks {'A': np.ndarray, 'B': np.ndarray} with the
+        aperture image of each module.
+    regmasks -- List of region mask images.
+    fpmlist -- List of modules corresponding to each region.
+
+    Output:
+
+    {'sum': []} List of sum of aperture image in each region.
+    """
+    res = {'sum': []}
+
+    for reg, instr in zip(regmasks, fpmlist):
+        fpm = util.fpm_parse(instr)
+        res['sum'].append(np.sum(reg * apimgs[fpm]))
+
+    return res
+
+
 def addspec_bgd(specfiles):
     """
     Clear all data and add new spectra data files, each in their own data
