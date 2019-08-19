@@ -37,6 +37,38 @@ def fits_write(hdulist, outfile, comment=None, history=None, overwrite=False):
     hdulist.writeto(outfile, checksum=True, overwrite=overwrite)
 
 
+def fits_checkkeyword(fitsfile, keyword, ext=0, silent=False):
+    """
+    Check the keyword value of a FITS extension.
+
+    Inputs:
+
+    fitsfile -- Path to the FITS file.
+    keyword -- The keyword to check.
+    ext -- Extension index (int) or key (str)
+
+    Return:
+
+    Value of the keyword.
+
+    Both the specified extension and keyword exist. If either condition is not
+    met, a KeyError exception will be raised.
+
+    If silent=True, return None without raising KeyError, unless the
+    specified file cannot be found, in which case astropy.io.fits will raise
+    an OSError.
+    """
+    fh = pf.open(fitsfile)
+    try:
+        return fh[ext].header[keyword]
+    except KeyError as e:
+        if silent:
+            return None
+        else:
+            print('The specified extension or keyword is not found.')
+            raise e
+
+
 def fpm_parse(keyword):
     if keyword not in ('FPMA', 'FPMB'):
         return False
