@@ -84,6 +84,17 @@ def mask_from_region(regfile, refimg):
     shapes in DS9, fk5 format to avoid unexpected behavior.
     """
     fh = pf.open(refimg)
-    reg = pyregion.open(regfile)
-    mask = reg.get_mask(hdu=fh[0])
-    return mask
+
+    if isinstance(regfile, str):
+        reg = pyregion.open(regfile)
+        return reg.get_mask(hdu=fh[0])
+
+    elif isinstance(regfile, list):
+        masks = []
+        for f in regfile:
+            reg = pyregion.open(f)
+            masks.append(reg.get_mask(hdu=fh[0]))
+        return masks
+
+    else:
+        raise ValueError('regfile should be a filename or list of filenames.')
