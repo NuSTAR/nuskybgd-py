@@ -200,30 +200,18 @@ Sample bgdinfo.json:
         if arg[0] in keywords:
             keywords[arg[0]] = arg[1]
 
-
     auxildir = conf._AUX_DIR
 
     # Input params
-    bgdinfofile = args[1]
-
-    bgdinfo = numodel.check_bgdinfofile(bgdinfofile)
-    regfiles = bgdinfo['regfiles']
-    refimgf = bgdinfo['refimgf']
-
+    bgdinfo = numodel.check_bgdinfofile(args[1])
     if bgdinfo is False:
-        print('Error: background info file %s problem.' % bgdinfofile)
+        print('Error: background info file %s problem.' % args[1])
         return 1
 
-    ratios = json.loads(open('%s/ratios.json' % auxildir).read())
-    # In [45]: ratiosA.keys()
-    # Out[45]: dict_keys(['name', 'comment', 'models'])
+    presets = json.loads(open('%s/ratios.json' % auxildir).read())
 
-    numodel.addspec_bgd(bgdinfo['bgfiles'])
-
-    # instrlist = numodel.get_keyword_specfiles(bgdinfo['bgfiles'],
-    #     'INSTRUME', ext='SPECTRUM')
-    instrlist = numodel.get_keyword_xspecdata('INSTRUME')
-    refspec = numodel.get_refspec(instrlist)
+    instrlist = numodel.get_keyword_specfiles(bgdinfo['bgfiles'],
+        'INSTRUME', ext='SPECTRUM')
 
     # Compute aperture image and detector mask based weights using each
     # background region's mask
@@ -231,21 +219,22 @@ Sample bgdinfo.json:
                                     bgdinfo['refimgf'])
     bgdapim, bgddetim = numodel.load_bgdimgs(bgdinfo)
 
-    # Each background spectrum has a list of 4 values associated with each
-    # CCD: number of pixels in the region mask.
+    # Number of det pixels in the region mask.
     bgddetweights = numodel.calc_det_weights(bgddetim, regmask, instrlist)
     bgddetimsum = bgddetweights['sum']
 
-    # Each background spectrum has a single value that is the sum of the
-    # aperture image in the region mask.
+    # Sum of the aperture image in the region mask.
     bgdapweights = numodel.calc_ap_weights(bgdapim, regmask, instrlist)
     bgdapimwt = bgdapweights['sum']
 
-    numodel.addmodel_apbgd(ratios, refspec, bgdapimwt, 2)
-    numodel.addmodel_intbgd(ratios, refspec, bgddetimsum, 3)
-    numodel.addmodel_fcxb(refspec, bgddetimsum, 4)
-    numodel.addmodel_intn(ratios, refspec, bgddetimsum, 5)
+    refspec = numodel.get_refspec(instrlist)
 
+    # Interact with Xspec
+    numodel.addspec_bgd(bgdinfo['bgfiles'])
+    numodel.addmodel_apbgd(presets, refspec, bgdapimwt, 2)
+    numodel.addmodel_intbgd(presets, refspec, bgddetimsum, 3)
+    numodel.addmodel_fcxb(refspec, bgddetimsum, 4)
+    numodel.addmodel_intn(presets, refspec, bgddetimsum, 5)
     numodel.run_fit()
 
     if keywords['savefile'] is None:
