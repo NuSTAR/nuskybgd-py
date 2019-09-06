@@ -119,28 +119,16 @@ def filter_gti(aimpointext, gtiext):
     aimpointarr = np.sort(aimpointext.data, order='TIME', kind='mergesort')
 
     n_aimpoint = len(aimpointarr)
-    i_gti = 0
+
+    # Store references to the columns (numpy arrays), order of magnitude
+    # faster for loop operation compared to querying gtiarr and aimpointarr
+    # rows (FITS record objects).
+    gtistart = gtiarr['START']
+    gtistop = gtiarr['STOP']
+    aimtimes = aimpointarr['TIME']
     flagarr = np.zeros(n_aimpoint, dtype=np.int8)
 
-    print('Processing %d aimpoints...' % n_aimpoint)
-
-    for i_aimpoint in range(n_aimpoint - 1):
-        # Ref pointings have a single time while GTI intervals have two.
-        # Original logic in projobs.pro considers pointing time against
-        # [start, stop), i.e. >= for start time, < for stop.
-
-        aim_time = aimpointarr[i_aimpoint][0]
-
-        # Ensure current GTI interval ends after current pointing time
-        try:
-            while aim_time >= gtiarr[i_gti][1]:
-                i_gti += 1
-        except IndexError:
-            # Reached the end of the GTI list
-            break
-
-        # Flag this pointing if it is inside current GTI interval
-        flagarr[i_aimpoint] = int(aim_time >= gtiarr[i_gti][0])
+    filter_gti_loop(aimtimes, gtistart, gtistop, flagarr)
 
     flagged = np.where(flagarr == 1)[0]
     view1 = aimpointarr[flagged]
@@ -153,6 +141,35 @@ def filter_gti(aimpointext, gtiext):
         np.sum(gtiarr.field('STOP') - gtiarr.field('START'))))
 
     return coords, dt
+
+
+def filter_gti_loop(times, gtistart, gtistop, flags):
+    """
+    Logic for filtering aimpoints by GTI intervals. Modify flags array
+    in-place.
+    """
+    n_aimpoint = len(times)
+    i_gti = 0
+
+    print('Processing %d aimpoints...' % n_aimpoint)
+
+    for i_aimpoint in range(n_aimpoint - 1):
+        # Ref pointings have a single time while GTI intervals have two.
+        # Original logic in projobs.pro considers pointing time against
+        # [start, stop), i.e. >= for start time, < for stop.
+
+        aim_time = times[i_aimpoint]
+
+        # Ensure current GTI interval ends after current pointing time
+        try:
+            while aim_time >= gtistop[i_gti]:
+                i_gti += 1
+        except IndexError:
+            # Reached the end of the GTI list
+            break
+
+        # Flag this pointing if it is inside current GTI interval
+        flags[i_aimpoint] = int(aim_time >= gtistart[i_gti])
 
 
 def make_aspecthist_img(coords, dt):
