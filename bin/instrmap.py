@@ -105,24 +105,33 @@ def get_caldb_pixpos(evthdr):
             continue
         idet = int(ext.header['DETNAM'].replace('DET', ''))
         pixpos = ext.data
+
+        # Store references to columns
+        pp_det1x = pixpos['REF_DET1X']
+        pp_det1y = pixpos['REF_DET1Y']
+        pp_rawx = pixpos['RAWX']
+        pp_rawy = pixpos['RAWY']
+        pp_grade = pixpos['GRADE']
+        pp_pdf = pixpos['PDF']
+
         for ix in np.arange(32):
             for iy in np.arange(32):
                 # Get array indices where all of the following are True
-                ii = np.where((pixpos.field('REF_DET1X') != -1) *
-                              (pixpos.field('RAWX') == ix) *
-                              (pixpos.field('RAWY') == iy) *
-                              (pixpos.field('GRADE') <= 26))[0]
+                ii = np.where((pp_det1x != -1) *
+                              (pp_rawx == ix) *
+                              (pp_rawy == iy) *
+                              (pp_grade <= 26))[0]
 
                 thispdf = np.zeros((360, 360), dtype=np.float64)
 
                 for i in ii:
-                    if not np.isnan(pixpos.field('PDF')[i]).any():
+                    if not np.isnan(pp_pdf[i]).any():
                         # No nan value in PDF
-                        ref_x = pixpos.field('REF_DET1X')[i]
-                        ref_y = pixpos.field('REF_DET1Y')[i]
+                        ref_x = pp_det1x[i]
+                        ref_y = pp_det1y[i]
                         thispdf[ref_y:ref_y + 7, ref_x:ref_x + 7] += (
-                            pixpos.field('PDF')[i] *
-                            GRADE_WT[pixpos.field('GRADE')[i]])
+                            pp_pdf[i] *
+                            GRADE_WT[pp_grade[i]])
 
                 ii = np.where(thispdf > allpdf)
                 if len(ii) > 0:
@@ -202,11 +211,11 @@ def apply_badpix(instrmap, bpixexts, pixmap, detnum):
         print(idet)
         badpix = ext.data
 
-        x = badpix.field('RAWX')
-        y = badpix.field('RAWY')
-        flags = badpix.field('BADFLAG')
+        x = badpix['RAWX']
+        y = badpix['RAWY']
+        flags = badpix['BADFLAG']
         if tobs is not None:
-            dt = badpix.field('TIME_STOP') - badpix.field('TIME')
+            dt = badpix['TIME_STOP'] - badpix['TIME']
 
         for i in np.arange(len(x)):
             if ((tobs is not None and dt[i] > 0.8 * tobs) or
