@@ -118,34 +118,35 @@ def filter_gti(aimpointext, gtiext):
     gtiarr = np.sort(gtiext.data, order='START', kind='mergesort')
     aimpointarr = np.sort(aimpointext.data, order='TIME', kind='mergesort')
 
-    i_aimpoint = 0
     n_aimpoint = len(aimpointarr)
     i_gti = 0
-    n_gti = len(gtiarr)
-    coords = []
-    dt = []
+    flagarr = np.zeros(n_aimpoint, dtype=np.int8)
 
     print('Processing %d aimpoints...' % n_aimpoint)
 
-    while i_aimpoint < (n_aimpoint - 1) and i_gti < n_gti:
+    for i_aimpoint in range(n_aimpoint - 1):
         # Ref pointings have a single time while GTI intervals have two.
         # Original logic in projobs.pro considers pointing time against
         # [start, stop), i.e. >= for start time, < for stop.
 
-        if aimpointarr[i_aimpoint][0] < gtiarr[i_gti][0]:
-            # Pointing is before current interval, go to next pointing
-            i_aimpoint += 1
-            continue
+        aim_time = aimpointarr[i_aimpoint][0]
 
-        if aimpointarr[i_aimpoint][0] >= gtiarr[i_gti][1]:
-            # Pointing is after current interval, go to next interval
-            i_gti += 1
-            continue
+        # Ensure current GTI interval ends after current pointing time
+        try:
+            while aim_time >= gtiarr[i_gti][1]:
+                i_gti += 1
+        except IndexError:
+            # Reached the end of the GTI list
+            break
 
-        # Otherwise there is overlap.
-        coords.append([aimpointarr[i_aimpoint][1], aimpointarr[i_aimpoint][2]])
-        dt.append(aimpointarr[i_aimpoint + 1][0] - aimpointarr[i_aimpoint][0])
-        i_aimpoint += 1
+        # Flag this pointing if it is inside current GTI interval
+        flagarr[i_aimpoint] = int(aim_time >= gtiarr[i_gti][0])
+
+    flagged = np.where(flagarr == 1)[0]
+    view1 = aimpointarr[flagged]
+    view2 = aimpointarr[flagged + 1]
+    coords = np.array([view1['X_DET1'], view1['Y_DET1']]).T
+    dt = view2['TIME'] - view1['TIME']
 
     print('%d aimpoints (%f / %f s)' % (
         len(coords), np.sum(dt),
