@@ -91,13 +91,13 @@ def get_aperture_image(detector):
         paperbgd = [float(_.split('#')[0]) for _ in _content]
 
     if detector == 'A':
-        aperture_db = pf.open('%s/detA_det1.img' % auxildir)[0].data
+        aperture_db = pf.open('%s/detA_det1.img.gz' % auxildir)[0].data
         shift_x = paperbgd[4] / 0.12096
         shift_y = paperbgd[5] / 0.12096
         rot_angle = paperbgd[6]
         rescale = 3.1865E-05 * paperbgd[0] * 0.12096 * 0.12096
     else:
-        aperture_db = pf.open('%s/detB_det1.img' % auxildir)[0].data
+        aperture_db = pf.open('%s/detB_det1.img.gz' % auxildir)[0].data
         shift_x = paperbgd[7] / 0.12096
         shift_y = paperbgd[8] / 0.12096
         rot_angle = paperbgd[9]

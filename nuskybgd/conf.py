@@ -10,6 +10,8 @@ _AUX_FILES = [
     'fcxbA.arf',
     'fcxbB.arf',
     'nomapbgdparams.dat',
+    'detA_det1.img.gz',
+    'detB_det1.img.gz',
     'ratios.json'
 ]
 _CALDB_ENV = 'CALDB'
