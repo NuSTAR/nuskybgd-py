@@ -19,6 +19,9 @@ import sys
 import os
 import astropy.io.fits as pf
 import numpy as np
+from scipy.ndimage import affine_transform
+from scipy.ndimage import shift
+from numpy.linalg import inv
 
 
 _NUSKYBGD_AUX_NAME = 'NUSKYBGD_AUXIL'
@@ -148,9 +151,6 @@ def transform_image(image, shiftx, shifty, angle, order=1):
     0  0  1
     (undo translation for center of rotation)
     """
-    from scipy.ndimage import affine_transform
-    from scipy.ndimage import shift
-    from numpy.linalg import inv
 
     if shiftx == 0 and shifty == 0 and angle == 0:
         return image
@@ -340,7 +340,7 @@ if __name__ == '__main__':
     refimap = np.zeros((1000, 1000), dtype=np.float64)
     refimi = np.zeros((len(det_input), 1000, 1000), dtype=np.float64)
 
-    print('Rotating instrument map...')
+    print('Rotating instrument map (PA = %f, %f radians)' % (pa, arot))
     for i in np.arange(1000):
         for j in np.arange(1000):
             detx = detxa[j, i]
@@ -358,16 +358,16 @@ if __name__ == '__main__':
     progress_total = len(inx[0])
     progress = 0
     print('Convolving instrument map with aspect solution...')
+    x_offset = pos_xoff - asppeakx - nudge[0]
+    y_offset = pos_yoff - asppeaky - nudge[1]
     for x, y in zip(inx[1], inx[0]):
         bgdimap += posim[y, x] * transform_image(
-            refimap, x + pos_xoff - asppeakx - nudge[0],
-            y + pos_yoff - asppeaky - nudge[1], 0)
+            refimap, x + x_offset, y + y_offset, 0)
         for idet_input in range(len(det_input)):
             bgdimi[idet_input] += posim[y, x] * transform_image(
-                refimi[idet_input], x + pos_xoff - asppeakx - nudge[0],
-                y + pos_yoff - asppeaky - nudge[1], 0)
+                refimi[idet_input], x + x_offset, y + y_offset, 0)
         progress += 1
-        sys.stdout.write('\r %d/%d' % (progress, progress_total))
+        sys.stdout.write('\r %d/%d positions' % (progress, progress_total))
         sys.stdout.flush()
 
     print('\nDone.')
