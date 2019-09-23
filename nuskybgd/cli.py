@@ -16,7 +16,8 @@ def run(args=[]):
     """
     tasks = {
         'absrmf': absrmf,
-        'fitab': fitab
+        'fitab': fitab,
+        'projobs': projobs
     }
 
     if len(args) == 1:
@@ -241,5 +242,131 @@ Sample bgdinfo.json:
         numodel.save_xcm()
     else:
         numodel.save_xcm(prefix=keywords['savefile'].strip())
+
+    return 0
+
+
+def projobs(args=[]):
+    """
+    Create an aspect histogram image from pointing info after filtering by GTI.
+
+    nuskybgd projobs aimpoints.fits gtifile=gti.fits out=aspecthist.fits
+
+    Example:
+
+    nuskybgd projobs nu90201039002A_det1.fits out=aspecthistA.fits \\
+        gtifile=nu90201039002A01_gti.fits
+
+    nuskybgd projobs nu90201039002B_det1.fits out=aspecthistB.fits \\
+        gtifile=nu90201039002B01_gti.fits
+
+    The output file has an image representing the 2D histogram of pointing
+    position with time. Gets pointing position from nu%obsid%?_det?.fits and
+    good time intervals from nu%obsid%?0?_gti.fits. nu%obsid%?_det?.fits (e.g.
+    nu90201039002A_det1.fits) has a table block named 'DET?_REFPOINT', with 3
+    columns (TIME, X_DET?, Y_DET?) where ? is the detector number (1-4).
+    nu%obsid%?0?_gti.fits (e.g. nu90201039002A01_gti.fits) has a table block
+    named 'STDGTI' with two columns (START, STOP) listing intervals of good
+    times.
+
+    The image is in an extension with the name ASPECT_HISTOGRAM. Any zero
+    padding has been cropped, and the x and y offsets are recorded in the
+    header keywords X_OFF and Y_OFF.
+    """
+    import os
+    import astropy.io.fits as pf
+    from .util import (
+        check_header_aimpoint, check_header_gti, filter_gti
+    )
+    from .image import (
+        make_aspecthist_img, write_aspecthist_img
+    )
+
+    if len(args) != 4:
+        print(projobs.__doc__)
+        return 0
+
+    aimpointfile = args[1]
+
+    keywords = {
+        'gtifile': None,
+        'out': None
+    }
+
+    for _ in args[1:]:
+        arg = _.split('=')
+        if arg[0] in keywords:
+            keywords[arg[0]] = arg[1]
+
+    gtifile = keywords['gtifile']
+    outfilename = keywords['out']
+
+    # Check the arguments
+    scriptname = os.path.basename(__file__)
+    print('Running %s. Performing checks...' % scriptname)
+
+    halt = False
+
+    if not os.path.exists(aimpointfile):
+        print('aimpointfile not found: %s' % aimpointfile)
+        halt = True
+
+    if gtifile is None:
+        print('gtifile= missing')
+        halt = True
+    elif not os.path.exists(gtifile):
+        print('GTI file not found: %s' % gtifile)
+        halt = True
+
+    if outfilename is None:
+        print('out= missing')
+        halt = True
+    elif os.path.exists(outfilename) and keywords['out'][0] != '!':
+        print('Output file exists: %s' % outfilename)
+        halt = True
+
+    if halt:
+        print('%s did not complete. See error messages.' % scriptname)
+        return 1
+
+    # Check contents of aimpoint and gti files
+    aimpointext = None
+    detfh = pf.open(aimpointfile)
+    for ext in detfh:
+        if check_header_aimpoint(ext.header):
+            aimpointext = ext
+            break
+    if aimpointext is None:
+        print('No aspect info in the specified file %s.' % aimpointfile)
+    else:
+        print('Found extension %s.' % aimpointext.header['EXTNAME'])
+
+    gtiext = None
+    gtifh = pf.open(gtifile)
+    for ext in gtifh:
+        if check_header_gti(ext.header):
+            gtiext = ext
+            break
+    if gtiext is None:
+        print('No GTI info in the specified file %s.' % gtifile)
+    else:
+        print('Found extension %s.' % gtiext.header['EXTNAME'])
+
+    # Check output file
+    if os.path.exists(outfilename):
+        if outfilename[0] == '!':
+            outfilename = outfilename[1:]
+            print('Overwriting file %s...')
+        else:
+            print('Output file %s exists (prefix with ! to overwrite)')
+            return 1
+
+    coords, dt = filter_gti(aimpointext, gtiext)
+
+    asphistimg, x_min, x_max, y_min, y_max = make_aspecthist_img(coords, dt)
+
+    write_aspecthist_img(
+        asphistimg, outfilename, aimpointext,
+        (x_min, x_max, y_min, y_max), overwrite=True)
 
     return 0
