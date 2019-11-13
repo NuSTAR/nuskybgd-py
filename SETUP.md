@@ -247,6 +247,7 @@ widgetsnbextension 3.5.1
 
 Install additional packages with `pip` as needed.
 
+---
 
 ## Compiling PyXspec against the Miniconda Python installation
 
