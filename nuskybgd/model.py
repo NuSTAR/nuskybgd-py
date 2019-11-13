@@ -367,7 +367,8 @@ def addmodel_intbgd(presets, refspec, bgddetimsum, model_num,
 
     Lines 1-3 (lorentz, lorentz_3, lorentz_4) are loaded from preset.
 
-    Line 4 (19 keV, lorentz_5) is loaded from preset:
+    Line 4 (19 keV, lorentz_5) is loaded from preset (detector area weighted
+    sum of pre-determined values for each detector):
 
     norm = sum (ifactor * bgddetimsum)
            ---------------------------
