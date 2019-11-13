@@ -174,9 +174,9 @@ and `nu*B01_cl.evt`.
 ```
 # In event_cl/
 
-instrmap.py nu90201039002A01_cl.evt
+nuskybgd mkinstrmap nu90201039002A01_cl.evt
 
-instrmap.py nu90201039002B01_cl.evt
+nuskybgd mkinstrmap nu90201039002B01_cl.evt
 ```
 
 This creates the files `newinstrmapA.fits` and `newinstrmapB.fits`, which are
@@ -190,11 +190,11 @@ Make images of the 2D histogram of the pointing position, one for each module.
 ```
 # In event_cl/
 
-nuskybgd projobs nu90201039002A_det1.fits gtifile=nu90201039002A01_gti.fits
-out=aspecthistA.fits
+nuskybgd projobs nu90201039002A_det1.fits gtifile=nu90201039002A01_gti.fits \
+    out=aspecthistA.fits
 
-nuskybgd projobs nu90201039002B_det1.fits gtifile=nu90201039002B01_gti.fits
-out=aspecthistB.fits
+nuskybgd projobs nu90201039002B_det1.fits gtifile=nu90201039002B01_gti.fits \
+    out=aspecthistB.fits
 ```
 
 This creates the files `aspecthistA.fits` and `aspecthistB.fits` in the
