@@ -190,10 +190,10 @@ Make images of the 2D histogram of the pointing position, one for each module.
 ```
 # In event_cl/
 
-nuskybgd projobs nu90201039002A_det1.fits gtifile=nu90201039002A01_gti.fits \
+nuskybgd aspecthist nu90201039002A_det1.fits gtifile=nu90201039002A01_gti.fits \
     out=aspecthistA.fits
 
-nuskybgd projobs nu90201039002B_det1.fits gtifile=nu90201039002B01_gti.fits \
+nuskybgd aspecthist nu90201039002B_det1.fits gtifile=nu90201039002B01_gti.fits \
     out=aspecthistB.fits
 ```
 
@@ -211,10 +211,10 @@ background and four images for the detector masks.
 ```
 # In event_cl/bgd/
 
-nuskybgd projinitbgds refimg=../imB3to20keV.fits out=bgdapA.fits \
+nuskybgd projbgd refimg=../imB3to20keV.fits out=bgdapA.fits \
 	mod=A det=1234 chipmap=../newinstrmapA.fits aspect=../aspecthistA.fits
 
-nuskybgd projinitbgds refimg=../imB3to20keV.fits out=bgdapB.fits \
+nuskybgd projbgd refimg=../imB3to20keV.fits out=bgdapB.fits \
 	mod=B det=1234 chipmap=../newinstrmapB.fits aspect=../aspecthistB.fits
 ```
 
@@ -229,11 +229,11 @@ files are in the directory `event_cl/bgd/`.
 
 ### 3.4 The background model
 
-Run `nuskybgd fitab` (requires PyXspec) to create an XSPEC save file
+Run `nuskybgd fit` (requires PyXspec) to create an XSPEC save file
 `bgdparams.xcm`, which contains the fitted background model.
 
 Create a file `bgdinfo.json` in `bgd/` with the following structure
-(`nuskybgd fitab --help` will print this template). The file names for the
+(`nuskybgd fit --help` will print this template). The file names for the
 images are default values so you may not need to modify them, but the files
 for the background regions need to be updated for your data. The `"regfiles"`
 list must correspond to the files in the `"bgfiles"` list.
@@ -276,18 +276,18 @@ list must correspond to the files in the `"bgfiles"` list.
 }
 ```
 
-Run `nuskybgd fitab` directing stdout to a log file, then check the log to see
+Run `nuskybgd fit` directing stdout to a log file, then check the log to see
 if the task encountered any problems.
 
 ```
 # In event_cl/bgd/
-nuskybgd fitab bgdinfo.json savefile=IC342bgd >& fitab.log
+nuskybgd fit bgdinfo.json savefile=IC342bgd >& fitab.log
 ```
 
-After successfully running `fitab`, the save file can be loaded in Xspec to
-recreate the same state. From there, the user can examine and tweak with the
-model. They can also save a modified version of it, preferably under a
-different name, to experiment with for the next step.
+After successfully running `nuskybgd fit`, the save file can be loaded in
+Xspec to recreate the same state. From there, the user can examine and tweak
+with the model. They can also save a modified version of it, preferably under
+a different name, to experiment with for the next step.
 
 ```
 # Start xspec, then input these commands

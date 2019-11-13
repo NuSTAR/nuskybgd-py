@@ -8,19 +8,23 @@ from . import conf
 
 def run(args=[]):
     """
+NAME
+    nuskybgd
     Run nuskybgd tasks.
 
-    Usage: nuskybgd task [arguments for task]
+USAGE
+    nuskybgd task [arguments for task]
 
+DESCRIPTION
     Without task arguments, the usage message for that task will be printed.
     The following tasks are available:
     """
     tasks = {
-        'absrmf': absrmf,
-        'fitab': fitab,
+        'aspecthist': aspecthist,
         'mkinstrmap': mkinstrmap,
-        'projinitbgds': projinitbgds,
-        'projobs': projobs
+        'projbgd': projbgd,
+        'fit': fit,
+        'absrmf': absrmf
     }
 
     if len(args) == 1:
@@ -30,26 +34,31 @@ def run(args=[]):
 
     if args[1] in tasks:
         return tasks[args[1]](args[1:])
+    else:
+        print('%s is unknown. Run \'nuskybgd\' to see all commands.' % args[1])
 
 
 def absrmf(args=[]):
     """
+NAME
+    nuskybgd absrmf
     Create RMF files that includes detector absorption (DETABS).
 
-    Usage:
-
+USAGE
     absrmf evtfile outfile [rmffile=CALDB] [detabsfile=CALDB]
 
-    evtfile is an event file from which the INSTRUME and DATE-OBS keywords are
-    used.
+DESCRIPTION
+    evtfile - An event file from which the INSTRUME and DATE-OBS keywords are
+        taken.
 
-    outfile will be prefixed to the output file names, and can be a file path.
+    outfile - Will be prefixed to the output file names, and can be a file
+        path.
 
-    rmffile is the RMF file to multiply by absorption, set it to CALDB
-    (default) to use the latest CALDB file(s).
+    rmffile - The RMF file to multiply by absorption. Set it to CALDB
+        (default) to use the latest CALDB file(s).
 
-    detabsfile is the detector absorption file to multiply the RMF with, set
-    it to CALDB (default) to use the latest CALDB file(s).
+    detabsfile - Detector absorption file to multiply the RMF with. Set it to
+        CALDB (default) to use the latest CALDB file(s).
     """
     if conf.block() is True:
         return 1
@@ -105,18 +114,22 @@ def absrmf(args=[]):
     return 0
 
 
-def fitab(args=[]):
+def fit(args=[]):
     """
+NAME
+    nuskybgd fit
+    Fit NuSTAR background model
+
+USAGE
+    nuskybgd fit bgdinfo.json [savefile=bgdparams.xcm]
+
+    nuskybgd fit --help  # print a sample bgdinfo.json
+
+DESCRIPTION
     Fit a multi-component background model to spectra from several background
     regions and save the best-fit model to an xcm file. If the intended save
     file exists, will retry 99 times with a number (2 to 100) appended to the
     name.
-
-    Usage:
-
-    fitab bgdinfo.json [savefile=bgdparams.xcm]
-
-    fitab --help  # print a sample bgdinfo.json
 
     Required in bgdinfo.json:
 
@@ -187,11 +200,11 @@ Sample bgdinfo.json:
 """
 
     if len(args) not in (2, 3):
-        print(fitab.__doc__)
+        print(fit.__doc__)
         return 0
 
     if args[1] == '--help':
-        print(fitab.__doc__)
+        print(fit.__doc__)
         print(EXAMPLE_BGDINFO)
         return 0
 
@@ -251,12 +264,15 @@ Sample bgdinfo.json:
 
 def mkinstrmap(args=[]):
     """
-    Create an instrument map for a specific observation. Bad pixels from CALDB
-    will always be applied.
+NAME
+    mkinstrmap
+    Create an instrument map for a specific observation
 
-    Usage:
-
+USAGE
     nuskybgd mkinstrmap A01_cl.evt [usrbpix=usrbpix.fits] [prefix=prefix]
+
+DESCRIPTION
+    Bad pixels from CALDB will always be applied.
 
     usrbpix - Specify additional bad pixels using a FITS file that has BADPIX
         extension(s). Multiple files can be given, separated by commas (with
@@ -391,21 +407,22 @@ Error: bad pixel file not found, skipping:
     return 0
 
 
-def projinitbgds(args=[]):
+def projbgd(args=[]):
     """
-    Project the instrument map onto sky coordinates to get the projected
-    detector mask images and background aperture images.
+NAME
+    projbgd
+    Project the instrument map onto sky coordinates
 
-    Usage:
-
-    nuskybgd projinitbgds refimg=flux.fits out=output.fits \\
+USAGE
+    nuskybgd projbgd refimg=flux.fits out=output.fits \\
         mod=[A,B] det=[1,2,3,4] chipmap=chipmap.fits aspect=aspect.fits
 
     Example:
 
-    nuskybgd projinitbgds refimg=imA4to25keV.fits out=bgdapA.fits \\
+    nuskybgd projbgd refimg=imA4to25keV.fits out=bgdapA.fits \\
         mod=A det=1234 chipmap=newinstrmapA.fits aspect=aspecthistA.fits
 
+DESCRIPTION
     The output file bgdapA.fits has the background aperture image in sky
     coordinates. A series of files showing the projected detector masks for
     each detector specified by det= will also be created, named
@@ -415,7 +432,7 @@ def projinitbgds(args=[]):
         return 1
 
     if len(args) == 1:
-        print(projinitbgds.__doc__)
+        print(projbgd.__doc__)
         return 0
 
     import os
@@ -563,20 +580,24 @@ def projinitbgds(args=[]):
     return 0
 
 
-def projobs(args=[]):
+def aspecthist(args=[]):
     """
-    Create an aspect histogram image from pointing info after filtering by GTI.
+NAME
+    aspecthist
+    Create an aspect histogram image from pointing info after filtering by GTI
 
-    nuskybgd projobs aimpoints.fits gtifile=gti.fits out=aspecthist.fits
+USAGE
+    nuskybgd aspecthist aimpoints.fits gtifile=gti.fits out=aspecthist.fits
 
     Example:
 
-    nuskybgd projobs nu90201039002A_det1.fits out=aspecthistA.fits \\
+    nuskybgd aspecthist nu90201039002A_det1.fits out=aspecthistA.fits \\
         gtifile=nu90201039002A01_gti.fits
 
-    nuskybgd projobs nu90201039002B_det1.fits out=aspecthistB.fits \\
+    nuskybgd aspecthist nu90201039002B_det1.fits out=aspecthistB.fits \\
         gtifile=nu90201039002B01_gti.fits
 
+DESCRIPTION
     The output file has an image representing the 2D histogram of pointing
     position with time. Gets pointing position from nu%obsid%?_det?.fits and
     good time intervals from nu%obsid%?0?_gti.fits. nu%obsid%?_det?.fits (e.g.
@@ -600,7 +621,7 @@ def projobs(args=[]):
     )
 
     if len(args) != 4:
-        print(projobs.__doc__)
+        print(aspecthist.__doc__)
         return 0
 
     aimpointfile = args[1]
