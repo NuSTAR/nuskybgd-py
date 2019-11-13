@@ -1,3 +1,10 @@
+# Requirements
+
+- Nuskybgd interacts with Xspec via PyXspec; you must install HEASOFT from source to use PyXspec.
+
+    Download HEASOFT: https://heasarc.gsfc.nasa.gov/lheasoft/download.html
+
+- You need a Python 3 environment; compile PyXspec against it. See SETUP.
 
 
 # Quick start guide
