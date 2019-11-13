@@ -1,8 +1,13 @@
+# (c) 2019 Qian Wang
+# This file is part of nuskybgd released under MIT License.
+# See LICENSE file for full details.
+
 import astropy.io.fits as pf
 import os
 import numpy as np
 from . import caldb
 from . import util
+
 
 def add_abs_hdu(detabshdu, rmfhdu):
     """

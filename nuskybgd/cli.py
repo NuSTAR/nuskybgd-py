@@ -1,8 +1,7 @@
-"""
-Functions to handle using nuskybgd tasks from the command line. These
-functions can also be used in Python, either in an interactive session or in a
-script, by passing an arguments list to them in lieu of sys.argv.
-"""
+# (c) 2019 Qian Wang
+# This file is part of nuskybgd released under MIT License.
+# See LICENSE file for full details.
+
 from . import conf
 
 
@@ -17,6 +16,10 @@ USAGE
 
 DESCRIPTION
     Without task arguments, the usage message for that task will be printed.
+    The functions for these tasks can also be used in Python, either in an
+    interactive session or in a script, by passing an arguments list to them
+    in lieu of sys.argv.
+
     The following tasks are available:
     """
     tasks = {

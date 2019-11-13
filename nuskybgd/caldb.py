@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+# (c) 2019 Qian Wang
+# This file is part of nuskybgd released under MIT License.
+# See LICENSE file for full details.
+
 import astropy.io.fits as pf
 import os
 import numpy as np
@@ -222,8 +225,3 @@ class CalDB:
             return filelist[-1]
         else:
             return table[inx]
-
-
-if __name__ == '__main__':
-    print(CalDB.__doc__)
-    sys.exit(0)

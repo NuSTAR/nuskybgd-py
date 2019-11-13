@@ -1,3 +1,7 @@
+# (c) 2019 Qian Wang
+# This file is part of nuskybgd released under MIT License.
+# See LICENSE file for full details.
+
 """
 Note that when nuskybgd is imported, some checks are performed and information
 is stored in nuskybgd.conf, including reference to a nuskybgd.caldb.CalDB
