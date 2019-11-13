@@ -297,7 +297,7 @@ def apply_badpix(instrmap, bpixexts, pixmap, detnum):
             continue
 
         idet = DETNAM[ext.header['DETNAM']]
-        print(idet)
+        # print(idet)
         badpix = ext.data
 
         x = badpix['RAWX']
