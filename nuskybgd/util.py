@@ -2,9 +2,12 @@
 Utility functions for sharing.
 """
 import datetime
-import astropy.io.fits as pf
 import pyregion
 import numpy as np
+
+
+def format_timestamp():
+    return datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
 
 
 def hdu_timestamp_write(hdu):
@@ -12,7 +15,7 @@ def hdu_timestamp_write(hdu):
     Update the DATE keyword of the input HDU header to current time. This
     modifies the input object 'hdu'.
     """
-    timestamp = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S')
+    timestamp = format_timestamp()
     hdu.header['DATE'] = (
         timestamp,
         'File creation date (YYYY-MM-DDThh:mm:ss UTC)'
@@ -57,6 +60,8 @@ def fits_checkkeyword(fitsfile, keyword, ext=0, silent=False):
     specified file cannot be found, in which case astropy.io.fits will raise
     an OSError.
     """
+    import astropy.io.fits as pf
+
     fh = pf.open(fitsfile)
     try:
         return fh[ext].header[keyword]
@@ -221,6 +226,8 @@ def mask_from_region(regfile, refimg):
     Uses the pyregion module. Please keep to using circle, box, and ellipse
     shapes in DS9, fk5 format to avoid unexpected behavior.
     """
+    import astropy.io.fits as pf
+
     fh = pf.open(refimg)
 
     if isinstance(regfile, str):
