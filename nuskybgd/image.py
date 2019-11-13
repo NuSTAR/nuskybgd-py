@@ -276,3 +276,193 @@ def calc_pa_to_arot(pa, old_pa=False):
     else:
         arot = (pa - 90.) * np.pi / 180.
     return arot
+
+
+def apply_badpix(instrmap, bpixexts, pixmap, detnum):
+    DETNAM = {'DET0': 0, 'DET1': 1, 'DET2': 2, 'DET3': 3}
+
+    output = 1. * instrmap
+
+    for ext in bpixexts:
+        hh = ext.header
+        if ('TSTART' in hh and 'TSTOP' in hh):
+            tobs = hh['TSTOP'] - hh['TSTART']
+        else:
+            tobs = None
+
+        if not ('EXTNAME' in ext.header and
+                'BADPIX' in ext.header['EXTNAME'] and
+                'DETNAM' in ext.header and
+                ext.header['DETNAM'] in DETNAM):
+            continue
+
+        idet = DETNAM[ext.header['DETNAM']]
+        print(idet)
+        badpix = ext.data
+
+        x = badpix['RAWX']
+        y = badpix['RAWY']
+        flags = badpix['BADFLAG']
+        if tobs is not None:
+            dt = badpix['TIME_STOP'] - badpix['TIME']
+
+        for i in np.arange(len(x)):
+            if ((tobs is not None and dt[i] > 0.8 * tobs) or
+                    flags[i][-2] is True):
+                ii = np.where((pixmap == x[i] + y[i] * 32) *
+                              (detnum == idet))
+                output[ii] = 0
+
+            ii = np.where(output > 0)
+            output[ii] = detnum[ii] + 1
+
+    return output
+
+
+def get_badpix_exts(bpixfiles):
+    DETNAM = {'DET0': 0, 'DET1': 1, 'DET2': 2, 'DET3': 3}
+
+    # Collect list of bad pixel extensions, group into FPMA and B
+    bpixlist = {'A': [], 'B': []}
+
+    for _ in bpixfiles:
+        ff = pf.open(_)
+        # Check FPM
+        phdr = ff[0].header
+        try:
+            if phdr['TELESCOP'] != 'NuSTAR':
+                print('%s: TELESCOP != NuSTAR, skipping.' % _)
+                continue
+        except KeyError:
+            print('%s: no TELESCOP keyword, skipping.' % _)
+            continue
+
+        try:
+            if phdr['INSTRUME'] == 'FPMA':
+                ab = 'A'
+            elif phdr['INSTRUME'] == 'FPMB':
+                ab = 'B'
+            else:
+                print('%s: unknown INSTRUME: %s' % (_, phdr['INSTRUME']))
+                continue
+        except KeyError:
+            print('%s: no INSTRUME keyword, skipping.' % _)
+            continue
+
+        for ext in ff[1:]:
+            try:
+                ehdr = ext.header
+                if not (ehdr['XTENSION'] == 'BINTABLE' and
+                        'BADPIX' in ehdr['EXTNAME']):
+                    continue
+                if ehdr['DETNAM'] in DETNAM:
+                    bpixlist[ab].append(ext)
+                    print('Added %s %s %s to list.' % (_, ab, ehdr['DETNAM']))
+                else:
+                    print('%s: unknown DETNAM: %s' % (_, ehdr['DETNAM']))
+                    continue
+            except KeyError:
+                # Extension does not have XTENSION, EXTNAME or DETNAM
+                continue
+
+    return bpixlist
+
+
+def make_det_mask(evthdr):
+    import os
+    from . import caldb
+    from . import conf
+
+    # grade weighting from NGC253 002 obs.
+    GRADE_WT = [1.00000, 0.124902, 0.117130, 0.114720, 0.118038,
+                0.0114296, 0.0101738, 0.0113617, 0.0122017, 0.0157910,
+                0.0144079, 0.0145691, 0.0149934, 0.00165462, 0.00194312,
+                0.00156128, 0.00143400, 0.00210433, 0.00180735, 0.00140006,
+                0.00169704, 0.00189220, 0.00160371, 0.00150188, 0.00168007,
+                0.000296983, 0.000364864]
+
+    fpm = evthdr['INSTRUME']
+    obsutctime = evthdr['DATE-OBS']
+    cal = caldb.CalDB(os.environ[conf._CALDB_ENV])
+    pixpospath = cal.getPIXPOS(fpm, 'DET0', obsutctime)
+
+    pixposf = pf.open('%s/%s' % (os.environ[conf._CALDB_ENV], pixpospath))
+
+    pixmap = np.full((360, 360), -1, dtype=np.int32)
+    detnum = np.full((360, 360), -1, dtype=np.int32)
+    allpdf = np.zeros((360, 360), dtype=np.float64)
+
+    for ext in pixposf:
+        if (('EXTNAME' not in ext.header) or
+            ('PIXPOS' not in ext.header['EXTNAME']) or
+                ('DETNAM' not in ext.header)):
+            continue
+        idet = int(ext.header['DETNAM'].replace('DET', ''))
+        pixpos = ext.data
+
+        # Store references to columns
+        pp_det1x = pixpos['REF_DET1X']
+        pp_det1y = pixpos['REF_DET1Y']
+        pp_rawx = pixpos['RAWX']
+        pp_rawy = pixpos['RAWY']
+        pp_grade = pixpos['GRADE']
+        pp_pdf = pixpos['PDF']
+
+        for ix in np.arange(32):
+            for iy in np.arange(32):
+                # Get array indices where all of the following are True
+                ii = np.where((pp_det1x != -1) *
+                              (pp_rawx == ix) *
+                              (pp_rawy == iy) *
+                              (pp_grade <= 26))[0]
+
+                thispdf = np.zeros((360, 360), dtype=np.float64)
+
+                for i in ii:
+                    if not np.isnan(pp_pdf[i]).any():
+                        # No nan value in PDF
+                        ref_x = pp_det1x[i]
+                        ref_y = pp_det1y[i]
+                        thispdf[ref_y:ref_y + 7, ref_x:ref_x + 7] += (
+                            pp_pdf[i] *
+                            GRADE_WT[pp_grade[i]])
+
+                ii = np.where(thispdf > allpdf)
+                if len(ii) > 0:
+                    allpdf[ii] = thispdf[ii]
+                    pixmap[ii] = ix + iy * 32
+                    detnum[ii] = idet
+
+    pixmap = shift(pixmap, [-1, -1], mode='wrap', prefilter=False, order=1)
+    detnum = shift(detnum, [-1, -1], mode='wrap', prefilter=False, order=1)
+
+    return pixmap, detnum
+
+
+def get_caldb_instrmap(evthdr):
+    """
+    Get instrument map image from CALDB, shifted by (-1, -1).
+
+    Returns (image, FITS header).
+    """
+    import os
+    from . import conf
+    from . import caldb
+    from . import util
+
+    fpm = evthdr['INSTRUME']
+    obsutctime = evthdr['DATE-OBS']
+
+    cal = caldb.CalDB(os.environ[conf._CALDB_ENV])
+    imappath = cal.getINSTRMAP(fpm, obsutctime)
+    imapf = pf.open('%s/%s' % (os.environ[conf._CALDB_ENV], imappath))
+    try:
+        imap = imapf['INSTRMAP'].data
+    except KeyError:
+        print('Error: INSTRMAP extension not found.')
+        return False
+    hdr = imapf['INSTRMAP'].header
+    hdr['HISTORY'] = 'Created inst. map from %s' % os.path.basename(imappath)
+    util.hdu_timestamp_write(imapf['INSTRMAP'])
+
+    return imap, hdr
