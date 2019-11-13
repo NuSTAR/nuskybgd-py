@@ -243,3 +243,13 @@ def mask_from_region(regfile, refimg):
 
     else:
         raise ValueError('regfile should be a filename or list of filenames.')
+
+
+def print_hr(width=78):
+    """
+    Print a horizontal line made from hyphens.
+
+    width - Width of the line in characters, must be > 0.
+    """
+    if width > 1:
+        print('-' * width)
