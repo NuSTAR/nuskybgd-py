@@ -1,16 +1,8 @@
-# Index
-
-- [Quick start guide](#quick-start-guide)
-
-- [Setting up Python environment](#note-about-python-environment)
-
-
----
 
 
 # Quick start guide
 
-## Environment variables
+## 1. Environment variables
 
 These environment variables must be set up before anything else. Modify the
 paths to point to the correct location on your machine.
@@ -59,8 +51,11 @@ modelling related files in a folder named `bgd` inside `event_cl`.
 
 Create the `bgd/` folder if this is the first time.
 
+---
 
-## Make an image
+## 2. Preparations
+
+### 2.1 Make an image
 
 Use mkimgs.py to create a counts image for WCS reference.
 
@@ -75,67 +70,8 @@ used later for their WCS information. All subsequent image products are
 projections onto the same WCS grid as these.
 
 
-## Make instrument maps
 
-Create image masks for the detectors. Do this for each module, `nu*A01_cl.evt`
-and `nu*B01_cl.evt`.
-
-```
-# In event_cl/
-
-instrmap.py nu90201039002A01_cl.evt
-
-instrmap.py nu90201039002B01_cl.evt
-```
-
-This creates the files `newinstrmapA.fits` and `newinstrmapB.fits`, which are
-image masks for the detectors.
-
-
-## Aspect histogram images
-
-Make images of the 2D histogram of the pointing position, one for each module.
-
-```
-# In event_cl/
-
-projobs.py nu90201039002A_det1.fits gtifile=nu90201039002A01_gti.fits
-out=aspecthistA.fits
-
-projobs.py nu90201039002B_det1.fits gtifile=nu90201039002B01_gti.fits
-out=aspecthistB.fits
-```
-
-This creates the files `aspecthistA.fits` and `aspecthistB.fits` in the
-directory `event_cl/`. They are images representing a 2D histogram in time of
-the pointing position.
-
-
-## Background aperture images
-
-Create images of the aperture background model and detector mask convolved
-with the aspect. For each module, one image is created for the aperture
-background and four images for the detector masks.
-
-```
-# In event_cl/bgd/
-
-projinitbgds.py refimg=../imB3to20keV.fits out=bgdapA.fits \
-	mod=A det=1234 chipmap=../newinstrmapA.fits aspect=../aspecthistA.fits
-
-projinitbgds.py refimg=../imB3to20keV.fits out=bgdapB.fits \
-	mod=B det=1234 chipmap=../newinstrmapB.fits aspect=../aspecthistB.fits
-```
-
-This creates the files `bgdapA.fits` and `bgdapB.fits`, which are the aperture
-background images rotated and convolved with the aspect histogram images, and
-`det0Aim.fits`, `det1Aim.fits`, `det2Aim.fits`, `det3Aim.fits`,
-`det0Bim.fits`, `det1Bim.fits`, `det2Bim.fits`, and `det3Bim.fits`, which are
-the detector masks rotated and convolved with the aspect histogram images. The
-files are in the directory `event_cl/bgd/`.
-
-
-## Extract spectra from background regions
+### 2.2 Extract spectra from background regions
 
 > **Note about regions**
 >
@@ -196,7 +132,24 @@ the response matrix file `bgd1A_sr.rmf`. We will use these files for the next
 step.
 
 
-## Fix the spectral products' RESPFILE keywords (optional)
+Extract the spectrum of an extended source in the aperture defined by src.reg.
+
+```
+# In event_cl/
+mkdir spec
+
+getspecnoarf.py nu90201039002A01_cl.evt reg=src1.reg \
+    indir=. outdir=spec outprefix=src1A \
+    attfile=../auxil/nu90201039002_att.fits.gz >& spec/src1A.log
+
+getspecnoarf.py nu90201039002B01_cl.evt reg=src.reg \
+    indir=. outdir=spec outprefix=src1B \
+    attfile=../auxil/nu90201039002_att.fits.gz >& spec/src1B.log
+```
+
+
+
+#### Fix the spectral products' RESPFILE keywords (optional)
 
 Spectral products from the old version of getspecnoarf.py wrote relative paths
 in the RESPFILE keyword of the PHA file, so that the latter must be loaded
@@ -209,8 +162,72 @@ load the spectrum when working in the same directory as it.
 find . -iname "*.pha" -type f -exec phafix.py {} \;
 ```
 
+---
 
-## Create and fit the background model
+## 3. Create and fit the background model
+
+### 3.1 Instrument maps
+
+Create image masks for the detectors. Do this for each module, `nu*A01_cl.evt`
+and `nu*B01_cl.evt`.
+
+```
+# In event_cl/
+
+instrmap.py nu90201039002A01_cl.evt
+
+instrmap.py nu90201039002B01_cl.evt
+```
+
+This creates the files `newinstrmapA.fits` and `newinstrmapB.fits`, which are
+image masks for the detectors.
+
+
+### 3.2 Aspect histogram images
+
+Make images of the 2D histogram of the pointing position, one for each module.
+
+```
+# In event_cl/
+
+nuskybgd projobs nu90201039002A_det1.fits gtifile=nu90201039002A01_gti.fits
+out=aspecthistA.fits
+
+nuskybgd projobs nu90201039002B_det1.fits gtifile=nu90201039002B01_gti.fits
+out=aspecthistB.fits
+```
+
+This creates the files `aspecthistA.fits` and `aspecthistB.fits` in the
+directory `event_cl/`. They are images representing a 2D histogram in time of
+the pointing position.
+
+
+### 3.3 Background aperture images
+
+Create images of the aperture background model and detector mask convolved
+with the aspect. For each module, one image is created for the aperture
+background and four images for the detector masks.
+
+```
+# In event_cl/bgd/
+
+nuskybgd projinitbgds refimg=../imB3to20keV.fits out=bgdapA.fits \
+	mod=A det=1234 chipmap=../newinstrmapA.fits aspect=../aspecthistA.fits
+
+nuskybgd projinitbgds refimg=../imB3to20keV.fits out=bgdapB.fits \
+	mod=B det=1234 chipmap=../newinstrmapB.fits aspect=../aspecthistB.fits
+```
+
+This creates the files `bgdapA.fits` and `bgdapB.fits`, which are the aperture
+background images rotated and convolved with the aspect histogram images, and
+`det0Aim.fits`, `det1Aim.fits`, `det2Aim.fits`, `det3Aim.fits`,
+`det0Bim.fits`, `det1Bim.fits`, `det2Bim.fits`, and `det3Bim.fits`, which are
+the detector masks rotated and convolved with the aspect histogram images. The
+files are in the directory `event_cl/bgd/`.
+
+
+
+### 3.4 The background model
 
 Run `nuskybgd fitab` (requires PyXspec) to create an XSPEC save file
 `bgdparams.xcm`, which contains the fitted background model.
@@ -299,13 +316,21 @@ save all mymodel
 The saved xcm file should not contain any general XSPEC/Tcl scripts because
 PyXspec will not properly execute it.
 
+---
 
-## Read in XSPEC save file to generate background images and background spectra
+## 4. Applying the fitted background
+
 
 Instructions to come.
 
 
+### 4.1 Generate background images
 
+
+### 4.2 Generate background spectra
+
+
+---
 
 ## Add detabs to rmf
 
@@ -329,20 +354,6 @@ imrefspec.py AB 0123
 
 ---
 
-Extract the spectrum of an extended source in the aperture defined by src.reg.
-
-```
-# In event_cl/
-mkdir spec
-
-getspecnoarf.py nu90201039002A01_cl.evt reg=src.reg \
-    indir=. outdir=spec outprefix=srcA \
-    attfile=../auxil/nu90201039002_att.fits.gz >& spec/srcA.log
-
-getspecnoarf.py nu90201039002B01_cl.evt reg=src.reg \
-    indir=. outdir=spec outprefix=srcB \
-    attfile=../auxil/nu90201039002_att.fits.gz >& spec/srcB.log
-```
 
 TODO
 
@@ -352,6 +363,14 @@ same method.
 hard background modelling examples
 ophiuchus -- cluster fills fov
 A2146 -- gain shifts
+
+
+FCXB choice for users whether to tie some regions/how
+
+Create hardcoded plain text models to read in to Xspec
+
+
+
 
 
 ---
