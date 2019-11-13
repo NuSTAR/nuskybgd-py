@@ -16,6 +16,8 @@ _AUX_FILES = [
 ]
 _CALDB_ENV = 'CALDB'
 _CALDB_CONF_ENV = 'CALDBCONFIG'
+_CALDB_PATH = None
+_CALDB = None
 
 
 def check():
@@ -47,14 +49,18 @@ def check():
         print('Please set the %s environment variable first.' % conf._CALDB_CONF_ENV)
         fail = True
     else:
-        cal = caldb.CalDB(os.environ[conf._CALDB_ENV])
+        conf._CALDB_PATH = os.environ[conf._CALDB_ENV]
+        cal = caldb.CalDB(conf._CALDB_PATH)
         if cal._index is None:
             fail = True
 
     if fail is True:
         print('Initial check did not pass!')
+    else:
+        conf._CALDB = cal
 
     return not fail
+
 
 def block():
     """
