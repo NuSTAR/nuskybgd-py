@@ -1,3 +1,7 @@
+# (c) 2019 Qian Wang
+# This file is part of nuskybgd released under MIT License.
+# See LICENSE file for full details.
+
 import numpy as np
 import astropy.io.fits as pf
 from scipy.ndimage import affine_transform

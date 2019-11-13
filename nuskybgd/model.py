@@ -1,6 +1,7 @@
-"""
-Functions for nuskybgd modelling, many involving interacting with xspec.
-"""
+# (c) 2019 Qian Wang
+# This file is part of nuskybgd released under MIT License.
+# See LICENSE file for full details.
+
 import xspec
 import os
 import json

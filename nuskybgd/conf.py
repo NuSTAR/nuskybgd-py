@@ -1,3 +1,7 @@
+# (c) 2019 Qian Wang
+# This file is part of nuskybgd released under MIT License.
+# See LICENSE file for full details.
+
 import os
 from . import conf
 
