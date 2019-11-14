@@ -852,6 +852,80 @@ def addmodel_grxe(presets, refspec, model_num, model_name='grxe'):
         s.multiresponse[model_num - 1].arf = '%s/be.arf' % conf._AUX_DIR
 
 
+def remove_ispec(nspec):
+    """
+    Remove a number of spectra from the front of the loaded spectra.
+
+    Example:
+
+    remove_ispec(nbgd)
+
+        Removes the first nbgd spectra.
+
+    Input:
+
+    nspec - Number of spectra to remove.
+    """
+    if nspec > xspec.data.AllData.nSpectra:
+        print('Error: cannot remove more spectra than there exists.')
+    for i in range(nspec):
+        xspec.data.AllData -= 1  # Remove the first spectrum many times
+
+
+def freeze_pars(specinx):
+    """
+    Freeze spectrum model parameters for all models. Returns a list of parameters
+    that are not linked and were not frozen, which can be used to thaw them.
+
+    Example:
+
+    frozenpars = freeze_pars(range(1, nbgd+1))
+
+        All model parameters for spectra 1 through nbgd are frozen.
+
+    Input:
+
+    specinx - An int or list of int, the spectrum number(s) to freeze model
+        parameters for.
+    """
+    frozen_pars = []
+
+    if isinstance(specinx, int):
+        specinx = [specinx]
+
+    for modelnum, modelname in xspec.AllModels.sources.items():
+        for j in specinx:
+            for i in range(1, 1+xspec.AllModels(j, modelname).nParameters):
+                if xspec.AllModels(j, modelname)(i).link == '':
+                    if xspec.AllModels(j, modelname)(i).frozen is False:
+                        frozen_pars.append((j, modelname, i))
+                        xspec.AllModels(j, modelname)(i).frozen = True
+    return frozen_pars
+
+
+def thaw_pars(parlist):
+    """
+    Thaw a list of parameters. Input should be a list of tuples containing
+    (spectrum number, model name, parameters number).
+
+    Example:
+
+    thaw_pars(frozenpars)
+
+        Thaws all the parameters in the frozenpars list.
+
+    Input:
+
+    parlist - A list of tuples(3) containing (spectrum number, model name,
+        parameter number).
+    """
+    for j, modname, i in parlist:
+        try:
+            xspec.AllModels(j, modname)(i).frozen = False
+        except Exception:
+            print('Error at ', j, modname, i)
+
+
 def run_fit(statmethod='chi', method='leven 30000 1e-4', ignore='**-3. 150.-**'):
     """
     Tell Xspec to perform the fitting using these settings.

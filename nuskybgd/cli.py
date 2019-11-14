@@ -31,6 +31,8 @@ def run(args=[]):
                      regions
         {b}spec         {o}Scale the fitted background model for a source
                      region
+        {b}simplify     {o}Simplify the source + background Xspec save file by
+                     removing the spectra from the background regions.
         {b}absrmf       {o}Add detector absorption to RMF files
     """
     tasks = {
@@ -39,7 +41,7 @@ def run(args=[]):
         'projbgd': projbgd,
         'fit': fit,
         'spec': spec,
-        ''
+        'simplify': simplify,
         'absrmf': absrmf
     }
 
@@ -428,6 +430,84 @@ def spec(args=[]):
 
     if keywords['savefile'] is None:
         numodel.save_xcm(prefix='bgd_'+src_regfiles[0].replace('.reg', ''))
+    else:
+        numodel.save_xcm(prefix=keywords['savefile'].strip())
+
+    return 0
+
+
+def simplify(args=[]):
+    """
+{b}NAME
+    {b}nuskybgd simplify{o}
+    Remove the background region spectra from the Xspec save file
+
+{b}USAGE{o}
+    nuskybgd simplify infofile.json bgd_src.xcm [savefile=bgd_only_src.xcm]
+
+{b}DESCRIPTION{o}
+    The result from {b}nuskybgd spec{o} is loaded in Xspec, and the first few
+    spectra in the list are removed (based on how many entries there are in
+    bgdinfo). Only source spectra and their background models remain. All
+    parameters are frozen, making it ready for the user to load the resulting
+    save file and add their source model.
+
+    {b}infofile.json{o} - The same JSON file that was used with {b}nuskybgd
+        fit{o} to obtain the background model.
+
+    {b}bgd_src.xcm{o} - The Xspec save file from {b}nuskybgd spec{o}.
+
+    {b}savefile{o} - (Optional) Name of the output file. By default, if 'bgd_'
+        is in the input xcm file name, it is replaced by 'bgd_only_' for the
+        output file name. Otherwise, 'bgd_only_' is prepended to the input
+        file name.
+    """
+
+    if conf.block() is True:
+        return 1
+
+    import xspec
+    import json
+    import os
+    from . import model as numodel
+
+    if len(args) not in (3, 4):
+        print(docformat(simplify.__doc__))
+        return 0
+
+    keywords = {
+        'savefile': None
+    }
+
+    for _ in args[3:]:
+        arg = _.split('=')
+        if arg[0] in keywords:
+            keywords[arg[0]] = arg[1]
+
+    # Input params
+    bgdinfo = numodel.check_bgdinfofile(args[1])
+    if bgdinfo is False:
+        print('Error: background info file %s problem.' % args[1])
+        return 1
+
+    # Load the Xspec save file
+    if not os.path.exists(args[2]):
+        print('Error: save file %s does not exist!' % args[2])
+        return 1
+    xspec.AllData.clear()
+    xspec.Xset.restore(args[2])
+
+    nbgd = len(bgdinfo['bgfiles'])
+    nspec = xspec.AllData.nSpectra
+    numodel.remove_ispec(nbgd)
+    frozenpars = numodel.freeze_pars(list(range(1, nspec - nbgd + 1)))
+
+    if keywords['savefile'] is None:
+        basename = os.path.basename(args[2]).replace('.xcm', '')
+        if 'bgd_' in args[2]:
+            numodel.save_xcm(prefix=basename.replace('bgd_', 'bgd_only_'))
+        else:
+            numodel.save_xcm(prefix='bgd_only_'+basename)
     else:
         numodel.save_xcm(prefix=keywords['savefile'].strip())
 
