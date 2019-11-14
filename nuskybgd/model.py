@@ -74,6 +74,38 @@ def check_bgdinfofile(bgdinfofile):
         return bgdinfo
 
 
+def check_spec_order(bgdinfo):
+    """
+    Check if the order of the loaded spectra files is the same as that in
+    bgdinfo. Run this when loading an Xspec save file for the background model
+    as a consistency check, because if the number or order of spectra files
+    don't match, subsequent steps are invalid. Returns True if the loaded
+    spectra and entries in bgdinfo are the same.
+
+    Input:
+
+    bgdinfo - Object loaded from the background info JSON file.
+    """
+    print('Checking for consistency between bgdinfo and loaded spectra...')
+    if len(bgdinfo['bgfiles']) != xspec.AllData.nSpectra:
+        print('Number of loaded spectra differs from bgdinfo entries!')
+        return False
+
+    problem = False
+    for i in range(xspec.AllData.nSpectra):
+        specfile = xspec.AllData(i + 1).fileName
+        if specfile != bgdinfo['bgfiles'][i]:
+            problem = True
+            print('%s\tError: non-matching %s' % (specfile, bgdinfo['bgfiles'][i]))
+        else:
+            print('%s\t%s\tOK' % (specfile, bgdinfo['regfiles'][i]))
+
+    if problem:
+        return False
+    else:
+        return True
+
+
 def load_bgdimgs(bgdinfo):
     """
     Retrieve and return the aspect-projected background maps.
@@ -852,8 +884,8 @@ def save_xcm(prefix='bgdparams'):
     Input:
 
     prefix - Specify file name prefix for the saved file. By default this is
-    'bgdparams', and if a file with this name exists, will attempt
-    bgdparams2.xcm through bgdparams100.xcm.
+        'bgdparams', and if a file with this name exists, will attempt
+        bgdparams2.xcm through bgdparams100.xcm.
     """
     i = 1
     while i < 101:  # Retry 100 times...
