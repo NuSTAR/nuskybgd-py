@@ -820,13 +820,28 @@ def addmodel_grxe(presets, refspec, model_num, model_name='grxe'):
         s.multiresponse[model_num - 1].arf = '%s/be.arf' % conf._AUX_DIR
 
 
-def run_fit():
+def run_fit(statmethod='chi', method='leven 30000 1e-4', ignore='**-3. 150.-**'):
     """
     Tell Xspec to perform the fitting using these settings.
+
+    Inputs:
+
+    statmethod - (Optional) The statistical method to be used by Xspec. This
+        is passed directly to Xspec via an analogous command to 'statistic'.
+        By default this is 'chi', requiring spectra to be grouped into bins
+        with typically 30 counts at least.
+
+    method - (Optional) Optimization method for the fit. By default this is
+        'leven 30000 1e-4'. Any valid argument for the Xspec command 'fit' is
+        acceptable.
+
+    ignore - (Optional) Channels or energies to ignore. By default, this is
+        '**-3. 150.-**'. Any valid argument for the Xspec command 'ignore'
+        will work here.
     """
-    xspec.AllData.ignore('**-3. 150.-**')
-    xspec.Fit.method = 'leven 30000 1e-4'
-    xspec.Fit.statMethod = 'chi'
+    xspec.AllData.ignore(ignore)
+    xspec.Fit.method = method
+    xspec.Fit.statMethod = statmethod
     xspec.Fit.perform()
 
 
