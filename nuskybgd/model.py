@@ -267,25 +267,32 @@ def calc_ap_weights(apimgs, regmasks, fpmlist):
     return res
 
 
-def addspec_bgd(specfiles):
+def addspec(specfiles, fresh=True):
     """
-    Clear all data and add new spectra data files, each in their own data
-    group. Afterward check the number of loaded spectra against length of
-    input list. If not all spectra loaded, an Exception is raised.
+    Add spectral data files in Xspec, each in their own data group. Afterward
+    check the number of loaded spectra against length of input list. If not
+    all spectra loaded, an Exception is raised.
 
-    Input:
+    Inputs:
 
-    specfiles -- List of files to load.
+    specfiles - List of files to load.
+
+    fresh - (Optional, default True) All existing spectra are cleared before
+        adding. If set to False, new spectra files are appended.
     """
-    xspec.DataManager.clear(0)  # Clear any existing loaded data
+    if fresh:
+        xspec.DataManager.clear(0)  # Clear any existing loaded data
+        count_before = 0
+    else:
+        count_before = xspec.AllData.nSpectra
 
     # Load each spectrum as a new data group
     for i in range(len(specfiles)):
         xspec.AllData('{num}:{num} {file}'.format(
-            num=i + 1,
+            num=i + 1 + count_before,  # Xspec spectrum numbering starts at 1
             file=specfiles[i]))
 
-    if xspec.AllData.nSpectra != len(specfiles):
+    if xspec.AllData.nSpectra != count_before + len(specfiles):
         raise Exception('Not all requested spectra loaded, cannot proceed!')
 
 

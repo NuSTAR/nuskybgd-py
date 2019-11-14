@@ -258,7 +258,7 @@ Sample bgdinfo.json:
     refspec = numodel.get_refspec(instrlist)
 
     # Interact with Xspec
-    numodel.addspec_bgd(bgdinfo['bgfiles'])
+    numodel.addspec(bgdinfo['bgfiles'])
     numodel.addmodel_apbgd(presets, refspec, bgdapimwt, 2)
     numodel.addmodel_intbgd(presets, refspec, bgddetimsum, 3)
     numodel.addmodel_fcxb(refspec, bgddetimsum, 4)
