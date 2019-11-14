@@ -3,24 +3,33 @@
 # See LICENSE file for full details.
 
 from . import conf
+from .util import docformat
 
 
 def run(args=[]):
     """
-NAME
-    nuskybgd
+{b}NAME{o}
+    {b}nuskybgd{o}
     Run nuskybgd tasks.
 
-USAGE
+{b}USAGE{o}
     nuskybgd task [arguments for task]
 
-DESCRIPTION
+{b}DESCRIPTION{o}
     Without task arguments, the usage message for that task will be printed.
     The functions for these tasks can also be used in Python, either in an
     interactive session or in a script, by passing an arguments list to them
     in lieu of sys.argv.
 
     The following tasks are available:
+
+        {b}aspecthist   {o}Create aspect histogram image of pointing
+        {b}mkinstrmap   {o}Make instrument map image
+        {b}projbgd      {o}Create aperture background and detector mask images
+                     rotated and convolved with the aspect histogram
+        {b}fit          {o}Fit the background models to spectra from background
+                     regions
+        {b}absrmf       {o}Add detector absorption to RMF files
     """
     tasks = {
         'aspecthist': aspecthist,
@@ -31,8 +40,7 @@ DESCRIPTION
     }
 
     if len(args) == 1:
-        print(run.__doc__)
-        print('\n'.join(list('        %s' % _ for _ in sorted(tasks.keys()))))
+        print(docformat(run.__doc__))
         return 0
 
     if args[1] in tasks:
@@ -43,25 +51,25 @@ DESCRIPTION
 
 def absrmf(args=[]):
     """
-NAME
-    nuskybgd absrmf
+{b}NAME{o}
+    {b}nuskybgd absrmf{o}
     Create RMF files that includes detector absorption (DETABS).
 
-USAGE
+{b}USAGE{o}
     absrmf evtfile outfile [rmffile=CALDB] [detabsfile=CALDB]
 
-DESCRIPTION
-    evtfile - An event file from which the INSTRUME and DATE-OBS keywords are
-        taken.
+{b}DESCRIPTION{o}
+    {b}evtfile{o} - An event file from which the INSTRUME and DATE-OBS
+        keywords are taken.
 
-    outfile - Will be prefixed to the output file names, and can be a file
-        path.
+    {b}outfile{o} - Will be prefixed to the output file names, and can be a
+        file path.
 
-    rmffile - The RMF file to multiply by absorption. Set it to CALDB
+    {b}rmffile{o} - The RMF file to multiply by absorption. Set it to CALDB
         (default) to use the latest CALDB file(s).
 
-    detabsfile - Detector absorption file to multiply the RMF with. Set it to
-        CALDB (default) to use the latest CALDB file(s).
+    {b}detabsfile{o} - Detector absorption file to multiply the RMF with. Set
+        it to CALDB (default) to use the latest CALDB file(s).
     """
     if conf.block() is True:
         return 1
@@ -70,7 +78,7 @@ DESCRIPTION
     from . import rmf
 
     if len(args) not in (3, 4, 5):
-        print(absrmf.__doc__)
+        print(docformat(absrmf.__doc__))
         return 0
 
     evtfile = args[1]
@@ -119,16 +127,16 @@ DESCRIPTION
 
 def fit(args=[]):
     """
-NAME
-    nuskybgd fit
+{b}NAME{o}
+    {b}nuskybgd fit{o}
     Fit NuSTAR background model
 
-USAGE
+{b}USAGE{o}
     nuskybgd fit bgdinfo.json [savefile=bgdparams.xcm]
 
     nuskybgd fit --help  # print a sample bgdinfo.json
 
-DESCRIPTION
+{b}DESCRIPTION{o}
     Fit a multi-component background model to spectra from several background
     regions and save the best-fit model to an xcm file. If the intended save
     file exists, will retry 99 times with a number (2 to 100) appended to the
@@ -136,20 +144,20 @@ DESCRIPTION
 
     Required in bgdinfo.json:
 
-        bgfiles - An array of spectra file names, extracted from background
-            regions, grouped so that bins have gaussian statistics.
+        {b}bgfiles{o} - An array of spectra file names, extracted from
+            background regions, grouped so that bins have gaussian statistics.
 
-        regfiles - An array of region files for the background regions, in the
-            same order as bgfiles.
+        {b}regfiles{o} - An array of region files for the background regions,
+            in the same order as bgfiles.
 
-        refimgf - Reference image file for creating region mask images, can be
-            the background aperture image file.
+        {b}refimgf{o} - Reference image file for creating region mask images,
+            can be the background aperture image file.
 
-        bgdapfiles - Dictionary with 'A' and 'B' keys, pointing to background
-            aperture image files for each focal plane module.
+        {b}bgdapfiles{o} - Dictionary with 'A' and 'B' keys, pointing to
+            background aperture image files for each focal plane module.
 
-        bgddetfiles - Dictionary with 'A' and 'B' keys, pointing to lists of 4
-            detector mask image files for each focal plane module.
+        {b}bgddetfiles{o} - Dictionary with 'A' and 'B' keys, pointing to
+            lists of 4 detector mask image files for each focal plane module.
     """
     if conf.block() is True:
         return 1
@@ -203,11 +211,11 @@ Sample bgdinfo.json:
 """
 
     if len(args) not in (2, 3):
-        print(fit.__doc__)
+        print(docformat(fit.__doc__))
         return 0
 
     if args[1] == '--help':
-        print(fit.__doc__)
+        print(docformat(fit.__doc__))
         print(EXAMPLE_BGDINFO)
         return 0
 
@@ -267,26 +275,26 @@ Sample bgdinfo.json:
 
 def mkinstrmap(args=[]):
     """
-NAME
-    mkinstrmap
+{b}NAME
+    {b}nuskybgd mkinstrmap{o}
     Create an instrument map for a specific observation
 
-USAGE
+{b}USAGE{o}
     nuskybgd mkinstrmap A01_cl.evt [usrbpix=usrbpix.fits] [prefix=prefix]
 
-DESCRIPTION
+{b}DESCRIPTION{o}
     Bad pixels from CALDB will always be applied.
 
-    usrbpix - Specify additional bad pixels using a FITS file that has BADPIX
-        extension(s). Multiple files can be given, separated by commas (with
-        no space in the argument).
+    {b}usrbpix{o} - Specify additional bad pixels using a FITS file that has
+        BADPIX extension(s). Multiple files can be given, separated by commas
+        (with no space in the argument).
 
-    prefix - Add a file name prefix for the output file. This allows the
+    {b}prefix{o} - Add a file name prefix for the output file. This allows the
         output to be written to any specified path. If a directory is
         intended, it must end with '/'.
 
-    dryrun - If 'yes', the task will stop after the bad pixel files have been
-        checked, before the instrument map is calculated.
+    {b}dryrun{o} - If 'yes', the task will stop after the bad pixel files have
+        been checked, before the instrument map is calculated.
     """
     import os
     from .image import (
@@ -304,7 +312,7 @@ Error: bad pixel file not found, skipping:
 """
 
     if len(args) == 1:
-        print(mkinstrmap.__doc__)
+        print(docformat(mkinstrmap.__doc__))
         return 0
 
     obsinfofile = args[1]
@@ -412,11 +420,11 @@ Error: bad pixel file not found, skipping:
 
 def projbgd(args=[]):
     """
-NAME
-    projbgd
+{b}NAME{o}
+    {b}nuskybgd projbgd{o}
     Project the instrument map onto sky coordinates
 
-USAGE
+{b}USAGE{o}
     nuskybgd projbgd refimg=flux.fits out=output.fits \\
         mod=[A,B] det=[1,2,3,4] chipmap=chipmap.fits aspect=aspect.fits
 
@@ -425,7 +433,7 @@ USAGE
     nuskybgd projbgd refimg=imA4to25keV.fits out=bgdapA.fits \\
         mod=A det=1234 chipmap=newinstrmapA.fits aspect=aspecthistA.fits
 
-DESCRIPTION
+{b}DESCRIPTION{o}
     The output file bgdapA.fits has the background aperture image in sky
     coordinates. A series of files showing the projected detector masks for
     each detector specified by det= will also be created, named
@@ -435,7 +443,7 @@ DESCRIPTION
         return 1
 
     if len(args) == 1:
-        print(projbgd.__doc__)
+        print(docformat(projbgd.__doc__))
         return 0
 
     import os
@@ -585,11 +593,11 @@ DESCRIPTION
 
 def aspecthist(args=[]):
     """
-NAME
-    aspecthist
+{b}NAME{o}
+    {b}nuskybgd aspecthist{o}
     Create an aspect histogram image from pointing info after filtering by GTI
 
-USAGE
+{b}USAGE{o}
     nuskybgd aspecthist aimpoints.fits gtifile=gti.fits out=aspecthist.fits
 
     Example:
@@ -600,7 +608,7 @@ USAGE
     nuskybgd aspecthist nu90201039002B_det1.fits out=aspecthistB.fits \\
         gtifile=nu90201039002B01_gti.fits
 
-DESCRIPTION
+{b}DESCRIPTION{o}
     The output file has an image representing the 2D histogram of pointing
     position with time. Gets pointing position from nu%obsid%?_det?.fits and
     good time intervals from nu%obsid%?0?_gti.fits. nu%obsid%?_det?.fits (e.g.
@@ -624,7 +632,7 @@ DESCRIPTION
     )
 
     if len(args) != 4:
-        print(aspecthist.__doc__)
+        print(docformat(aspecthist.__doc__))
         return 0
 
     aimpointfile = args[1]

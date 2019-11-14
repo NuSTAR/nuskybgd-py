@@ -254,3 +254,8 @@ def print_hr(width=78):
     """
     if width > 1:
         print('-' * width)
+
+
+def docformat(txt):
+    """Format some docstring for terminal."""
+    return txt.format(b='\033[1;31m', o='\033[0;0m')
