@@ -296,7 +296,8 @@ def addspec(specfiles, fresh=True):
         raise Exception('Not all requested spectra loaded, cannot proceed!')
 
 
-def addmodel_apbgd(presets, refspec, bgdapimwt, model_num, model_name='apbgd'):
+def applymodel_apbgd(presets, refspec, bgdapimwt, model_num, src_number=None,
+                     model_name='apbgd'):
     """
     Xspec model component 2: apbgd (aperture image background)
 
@@ -320,15 +321,19 @@ def addmodel_apbgd(presets, refspec, bgdapimwt, model_num, model_name='apbgd'):
     presets - Preset model parameter values read from file.
 
     refspec - Dictionary with 'A' and 'B' keys whose values are the 0-based
-    index of the reference spectrum for FPMA and FPMB.
+        index of the reference spectrum for FPMA and FPMB.
 
     bgdapimwt - List of sum of aperture image inside background region.
 
     model_num - Model component number in Xspec, cannot be the same as another
-    model or it will replace.
+        model or it will replace.
 
-    model_name - Model component name in Xspec, default 'apbgd', cannot be the
-    same as another model.
+    src_number - (Optional) Position of first spectrum to process, if not
+        starting at 1. This is useful for rescaling background model parameters
+        for a newly added spectrum.
+
+    model_name - (Optional) Model component name in Xspec, default 'apbgd', cannot be the
+        same as another model.
     """
     mod_apbgd = presets['models'][0]['components']
 
@@ -361,7 +366,7 @@ def addmodel_apbgd(presets, refspec, bgdapimwt, model_num, model_name='apbgd'):
                 3 * refspec[fpm] + 3)
 
 
-def addmodel_intbgd(presets, refspec, bgddetimsum, model_num,
+def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                     model_name='intbgd'):
     """
     Xspec model component 3: intbgd (instrument background)
@@ -412,15 +417,19 @@ def addmodel_intbgd(presets, refspec, bgddetimsum, model_num,
     presets - Preset model parameter values read from file.
 
     refspec - Dictionary with 'A' and 'B' keys whose values are the 0-based
-    index of the reference spectrum for FPMA and FPMB.
+        index of the reference spectrum for FPMA and FPMB.
 
     bgddetimsum - List of area inside background region for each CCD.
 
     model_num - Model component number in Xspec, cannot be the same as another
-    model or it will replace.
+        model or it will replace.
 
-    model_name - Model component name in Xspec, default 'intbgd', cannot be
-    the same as another model.
+    src_number - (Optional) Position of first spectrum to process, if not
+        starting at 1. This is useful for rescaling background model parameters
+        for a newly added spectrum.
+
+    model_name - (Optional) Model component name in Xspec, default 'intbgd',
+        cannot be the same as another model.
     """
     mod_intbgd = presets['models'][1]['components']
 
@@ -539,7 +548,7 @@ def addmodel_intbgd(presets, refspec, bgddetimsum, model_num,
                 )
 
 
-def addmodel_fcxb(refspec, bgddetimsum, model_num,
+def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
                   model_name='fcxb', apbgd_name='apbgd'):
     """
     Xspec model component 4: fcxb (focused CXB)
@@ -559,19 +568,25 @@ def addmodel_fcxb(refspec, bgddetimsum, model_num,
     Inputs:
 
     refspec - Dictionary with 'A' and 'B' keys whose values are the 0-based
-    index of the reference spectrum for FPMA and FPMB.
+        index of the reference spectrum for FPMA and FPMB.
 
     bgddetimsum - List of area inside background region for each CCD.
 
     model_num - Model component number in Xspec, cannot be the same as another
-    model or it will replace.
+        model or it will replace.
+
 
     model_name - Model component name in Xspec, default 'fcxb', cannot be the
-    same as another model.
+        same as another model.
+
+    src_number - (Optional) Position of first spectrum to process, if not
+        starting at 1. This is useful for rescaling background model parameters
+        for a newly added spectrum.
 
     apbgd_name - Model component name of the aperture background model, must
-    have been already added.
+        have been already added.
     """
+
     # Add the response for this source.
     for i in range(xspec.AllData.nSpectra):
         s = xspec.AllData(i + 1)
@@ -605,7 +620,8 @@ def addmodel_fcxb(refspec, bgddetimsum, model_num,
                 3 * refspec[fpm] + 3)
 
 
-def addmodel_intn(presets, refspec, bgddetimsum, model_num, model_name='intn'):
+def applymodel_intn(presets, refspec, bgddetimsum, model_num, src_number=None,
+                  model_name='intn'):
     """
     Xspec model component 5: intn (bknpower)
 
@@ -620,15 +636,19 @@ def addmodel_intn(presets, refspec, bgddetimsum, model_num, model_name='intn'):
     presets - Preset model parameter values read from file.
 
     refspec - Dictionary with 'A' and 'B' keys whose values are the 0-based
-    index of the reference spectrum for FPMA and FPMB.
+        index of the reference spectrum for FPMA and FPMB.
 
     bgddetimsum - List of area inside background region for each CCD.
 
     model_num - Model component number in Xspec, cannot be the same as another
-    model or it will replace.
+        model or it will replace.
+
+    src_number - (Optional) Position of first spectrum to process, if not
+        starting at 1. This is useful for rescaling background model parameters
+        for a newly added spectrum.
 
     model_name - Model component name in Xspec, default 'intn', cannot be the
-    same as another model.
+        same as another model.
     """
     mod_intn = presets['models'][3]['components']
 

@@ -259,10 +259,15 @@ Sample bgdinfo.json:
 
     # Interact with Xspec
     numodel.addspec(bgdinfo['bgfiles'])
-    numodel.addmodel_apbgd(presets, refspec, bgdapimwt, 2)
-    numodel.addmodel_intbgd(presets, refspec, bgddetimsum, 3)
-    numodel.addmodel_fcxb(refspec, bgddetimsum, 4)
-    numodel.addmodel_intn(presets, refspec, bgddetimsum, 5)
+    ##########
+    # The model numbers below (they will become source number in Xspec) are
+    # arbitrary but the same ones must be used in subsequent processes that
+    # will load this Xspec save file.
+    numodel.applymodel_apbgd(presets, refspec, bgdapimwt, 2)
+    numodel.applymodel_intbgd(presets, refspec, bgddetimsum, 3)
+    numodel.applymodel_fcxb(refspec, bgddetimsum, 4)
+    numodel.applymodel_intn(presets, refspec, bgddetimsum, 5)
+    ##########
     numodel.run_fit()
 
     if keywords['savefile'] is None:
