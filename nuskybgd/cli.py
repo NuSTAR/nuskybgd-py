@@ -29,6 +29,8 @@ def run(args=[]):
                      rotated and convolved with the aspect histogram
         {b}fit          {o}Fit the background models to spectra from background
                      regions
+        {b}spec         {o}Scale the fitted background model for a source
+                     region
         {b}absrmf       {o}Add detector absorption to RMF files
     """
     tasks = {
@@ -36,6 +38,8 @@ def run(args=[]):
         'mkinstrmap': mkinstrmap,
         'projbgd': projbgd,
         'fit': fit,
+        'spec': spec,
+        ''
         'absrmf': absrmf
     }
 
@@ -236,6 +240,7 @@ Sample bgdinfo.json:
         print('Error: background info file %s problem.' % args[1])
         return 1
 
+    #####################################################
     presets = json.loads(open('%s/ratios.json' % auxildir).read())
 
     instrlist = numodel.get_keyword_specfiles(bgdinfo['bgfiles'],
@@ -256,6 +261,7 @@ Sample bgdinfo.json:
     bgdapimwt = bgdapweights['sum']
 
     refspec = numodel.get_refspec(instrlist)
+    #####################################################
 
     # Interact with Xspec
     numodel.addspec(bgdinfo['bgfiles'])
@@ -272,6 +278,156 @@ Sample bgdinfo.json:
 
     if keywords['savefile'] is None:
         numodel.save_xcm()
+    else:
+        numodel.save_xcm(prefix=keywords['savefile'].strip())
+
+    return 0
+
+
+def spec(args=[]):
+    """
+{b}NAME
+    {b}nuskybgd spec{o}
+    Rescale the background models for a source region
+
+{b}USAGE{o}
+    nuskybgd spec infofile.json bgdparams.xcm source.reg source.pha \\
+        [savefile=bgd_source.xcm]
+
+{b}DESCRIPTION{o}
+    The result from {b}nuskybgd fit{o} is first retrieved by referring to
+    infofile.json and loading bgdparams.xcm in Xspec. The source spectrum is
+    then appended to the spectra file list and its corresponding parameters
+    values for all the background model sources are rescaled. This state is
+    saved to a new *.xcm file, which the user can load in Xspec to inspect the
+    quality of the background model against the source spectrum.
+
+    {b}infofile.json{o} - The same JSON file that was used with {b}nuskybgd
+        fit{o} to obtain the background model.
+
+    {b}bgdparams.xcm{o} - The Xspec save file from {b}nuskybgd fit{o}.
+
+    {b}source.reg{o} - Region file containing the source region.
+
+    {b}source.pha{o} - Source spectrum file, binned appropriately and
+        containing header keywords specifying its RESPFILE.
+
+    {b}savefile{o} - (Optional) Name of the output file. By default, 'bgd_' is
+        prepended to the prefix of the first source region file, e.g.
+        src1.reg,src2.reg -> bgd_src1.xcm.
+    """
+    if conf.block() is True:
+        return 1
+
+    import os
+    import json
+    import xspec
+    import numpy as np
+    import astropy.io.fits as pf
+    from . import util
+    from . import model as numodel
+
+    if len(args) not in (5, 6):
+        print(docformat(spec.__doc__))
+        return 0
+
+    keywords = {
+        'savefile': None
+    }
+
+    for _ in args[5:]:
+        arg = _.split('=')
+        if arg[0] in keywords:
+            keywords[arg[0]] = arg[1]
+
+    auxildir = conf._AUX_DIR
+
+    # Input params
+    bgdinfo = numodel.check_bgdinfofile(args[1])
+    if bgdinfo is False:
+        print('Error: background info file %s problem.' % args[1])
+        return 1
+
+    # Check the source region files and spec files
+    src_regfiles = args[3].split(',')
+    src_specfiles = args[4].split(',')
+    halt = False
+    for _ in src_regfiles + src_specfiles:
+        if not os.path.exists(_):
+            halt = True
+            print('Error: file %s does not exist!' % _)
+    if halt:
+        return 1
+
+    # Load the Xspec save file
+    if not os.path.exists(args[2]):
+        print('Error: save file %s does not exist!' % args[2])
+        return 1
+    xspec.AllData.clear()
+    xspec.Xset.restore(args[2])
+
+    # Check order of loaded spectra vs. files listed in bgdinfo. Must have
+    # save order!
+    if not numodel.check_spec_order(bgdinfo):
+        print('Loaded spectra files are inconsistent with bgdinfo, stopping.')
+        return 1
+
+    #####################################################
+    # This part is identical to fit()
+    presets = json.loads(open('%s/ratios.json' % auxildir).read())
+
+    instrlist = numodel.get_keyword_specfiles(bgdinfo['bgfiles'],
+                                              'INSTRUME', ext='SPECTRUM')
+
+    # Compute aperture image and detector mask based weights using each
+    # background region's mask
+    regmask = util.mask_from_region(bgdinfo['regfiles'],
+                                    bgdinfo['refimgf'])
+    bgdapim, bgddetim = numodel.load_bgdimgs(bgdinfo)
+
+    # Number of det pixels in the region mask.
+    bgddetweights = numodel.calc_det_weights(bgddetim, regmask, instrlist)
+    bgddetimsum = bgddetweights['sum']
+
+    # Sum of the aperture image in the region mask.
+    bgdapweights = numodel.calc_ap_weights(bgdapim, regmask, instrlist)
+    bgdapimwt = bgdapweights['sum']
+
+    refspec = numodel.get_refspec(instrlist)
+    #####################################################
+
+    # Append the corresponding values for the source region
+    src_instrlist = numodel.get_keyword_specfiles(src_specfiles, 'INSTRUME', ext='SPECTRUM')
+    src_regmasks = util.mask_from_region(src_regfiles, bgdinfo['refimgf'])
+    src_detweights = numodel.calc_det_weights(bgddetim, src_regmasks, src_instrlist)
+    src_detimsum = src_detweights['sum']
+    src_apweights = numodel.calc_ap_weights(bgdapim, src_regmasks, src_instrlist)
+    src_apimwt = src_apweights['sum']
+
+    instrlist += src_instrlist
+    regmask += src_regmasks
+    bgddetweights['fraction'] += src_detweights['fraction']
+    # The two below are references. Don't sum the ['sum'] arrays a second time.
+    bgddetimsum += src_detimsum
+    bgdapimwt += src_apimwt
+
+    src_number = len(bgdinfo['bgfiles']) + 1  # First source spectrum's number
+    #####################################################
+
+
+    # Interact with Xspec
+    numodel.addspec(src_specfiles, fresh=False)
+    ##########
+    # These models need to have the same number as in fit() or it won't work!
+    numodel.applymodel_apbgd(presets, refspec, bgdapimwt, 2, src_number=src_number)
+    numodel.applymodel_intbgd(presets, refspec, bgddetimsum, 3, src_number=src_number)
+    numodel.applymodel_fcxb(refspec, bgddetimsum, 4, src_number=src_number)
+    numodel.applymodel_intn(presets, refspec, bgddetimsum, 5, src_number=src_number)
+    ##########
+
+
+    if keywords['savefile'] is None:
+        numodel.save_xcm(prefix='bgd_'+src_regfiles[0].replace('.reg', ''))
     else:
         numodel.save_xcm(prefix=keywords['savefile'].strip())
 
