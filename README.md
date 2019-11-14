@@ -328,13 +328,44 @@ PyXspec will not properly execute it.
 ## 4. Applying the fitted background
 
 
-Instructions to come.
+### 4.1 Spectral analysis --- calculate the background model for a source region
+
+To calculate the amount of background in some source region, create a region
+file and extract the spectrum from it. For this example, the region file is
+named `src1.reg` and the grouped spectrum file is `src1_g30.pha`. Use
+`nuskybgd spec` on the best fit model save file.
+
+```
+nuskybgd spec bgdinfo.json mymodel.xcm src1.reg src1_g30.pha
+```
+
+See the help message of `nuskybgd spec` for what it does. This step creates a
+new Xspec save file, `bgd_src1.xcm` (for custom output file name, use the
+optional argument `savefile=` to specify it.)
+
+This save file is very similar to the input, with the addition of the source
+spectrum, and the background model parameter values have been calculated for
+the source spectrum region. The background model parameters are free, and the
+user can verify the quality of the background subtraction and tweak the model.
+
+When the background model is satisfactory, create an Xspec save file with the
+command `save all bgd_src1_mymodel` and use this for the following step.
+Otherwise, just use the output from `nuskybgd spec` (as below).
+
+```
+nuskybgd simplify bgdinfo.json bgd_src1.xcm
+```
+
+This final step removes the spectra from the background regions from the saved
+Xspec state, leaving only the source spectrum. The background model parameters
+are frozen, and the user can load this save file in Xspec and proceed to
+adding their source model. The default output file name for the example
+command above is `bgd_only_src1.xcm`, but this can be customized using the
+`savefile=` argument.
 
 
-### 4.1 Generate background images
+### 4.2 Generate background images
 
-
-### 4.2 Generate background spectra
 
 
 ---
@@ -374,7 +405,7 @@ A2146 -- gain shifts
 
 FCXB choice for users whether to tie some regions/how
 
-Create hardcoded plain text models to read in to Xspec
+Create hardcoded table model of the total background to read in to Xspec?
 
 
 
