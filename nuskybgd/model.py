@@ -337,31 +337,50 @@ def applymodel_apbgd(presets, refspec, bgdapimwt, model_num, src_number=None,
     """
     mod_apbgd = presets['models'][0]['components']
 
-    # Add the response for this source.
-    for i in range(xspec.AllData.nSpectra):
-        s = xspec.AllData(i + 1)
+    if isinstance(src_number, int):
+        spec_start = src_number
+    else:
+        spec_start = 1
+
+    if not (xspec.AllData.nSpectra >= spec_start > 0):  # Must be within 1...nspec
+        raise Exception('Cannot apply model for spectrum: spectrum number out of range.')
+
+    # Process all spectra from spec_start to the end
+    spec_count = xspec.AllData.nSpectra - (spec_start - 1)
+
+    # Add the response for this source
+    for i in range(spec_count):
+        s = xspec.AllData(i + spec_start)
         s.multiresponse[model_num - 1] = s.response.rmf
         s.multiresponse[model_num - 1].arf = '%s/be.arf' % conf._AUX_DIR
 
-    xspec.Model('cutoffpl', model_name, model_num)
+    if model_num not in xspec.AllModels.sources:  # Adding new, or updating?
+        xspec.Model('cutoffpl', model_name, model_num)
+    elif model_name != xspec.AllModels.sources[model_num]:
+        print('Error: the requested model number exists and does not match'
+              'specified model name. Cannot proceed with updating parameters!')
+        return False
 
-    for i in range(xspec.AllData.nSpectra):
-        spec = xspec.AllData(i + 1)
+    for i in range(spec_count):
+        spec_number = i + spec_start  # Spectrum number in Xspec
+        spec_arrinx = spec_number - 1  # Index in bgdapimwt array etc.
+        spec = xspec.AllData(spec_number)
         fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
-        m = xspec.AllModels(i + 1, model_name)
-        if i == refspec['A'] or i == refspec['B']:
+        m = xspec.AllModels(spec_number, model_name)
+
+        if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
             m.cutoffpl.PhoIndex.values = mod_apbgd['cutoffpl'][fpm]['phoindex']
             m.cutoffpl.HighECut.values = mod_apbgd['cutoffpl'][fpm]['highecut']
             m.cutoffpl.PhoIndex.frozen = True
             m.cutoffpl.HighECut.frozen = True
-            m.cutoffpl.norm.values = 0.002353 / 32 * bgdapimwt[i]
+            m.cutoffpl.norm.values = 0.002353 / 32 * bgdapimwt[spec_arrinx]
         else:
             m.cutoffpl.PhoIndex.link = '%s:p%d' % (
                 model_name, 3 * refspec[fpm] + 1)
             m.cutoffpl.HighECut.link = '%s:p%d' % (
                 model_name, 3 * refspec[fpm] + 2)
             m.cutoffpl.norm.link = '%e * %s:p%d' % (
-                bgdapimwt[i] / bgdapimwt[refspec[fpm]],
+                bgdapimwt[spec_arrinx] / bgdapimwt[refspec[fpm]],
                 model_name,
                 3 * refspec[fpm] + 3)
 
@@ -433,23 +452,46 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
     """
     mod_intbgd = presets['models'][1]['components']
 
+    # Starting spectrum number
+    if isinstance(src_number, int):
+        spec_start = src_number
+    else:
+        spec_start = 1
+
+    # Validate the requested startspec number
+    if not (xspec.AllData.nSpectra >= spec_start > 0):  # Must be within 1...nspec
+        raise Exception('Cannot apply model for spectrum: spectrum number out of range.')
+
+    # Number of spectra to process
+    spec_count = xspec.AllData.nSpectra - (spec_start - 1)
+
     # Add the response for this source.
-    for i in range(xspec.AllData.nSpectra):
-        s = xspec.AllData(i + 1)
+    for i in range(spec_count):
+        s = xspec.AllData(i + spec_start)
         s.multiresponse[model_num - 1] = s.response.rmf
 
-    xspec.Model('apec' + '+lorentz' * (len(mod_intbgd) - 1),
+    # Are we adding the model, or updating it?
+    if model_num not in xspec.AllModels.sources:
+        xspec.Model('apec' + '+lorentz' * (len(mod_intbgd) - 1),
                 model_name, model_num)
+    elif model_name != xspec.AllModels.sources[model_num]:
+        # Model already exists when source spectrum is added. Proceed to adjust the params.
+        print('Error: the requested model number (%d, %s) exists and does not match '
+              'specified model name (%s). Cannot proceed with updating parameters!' %(
+              model_num, xspec.AllModels.sources[model_num], model_name))
+        return False
 
     # There are in total (len(mod_intbgd) * 3 + 1) parameters per spectrum. 4
     # parameters for apec and 3 parameters for lorentz.
-    for i in range(xspec.AllData.nSpectra):
-        spec = xspec.AllData(i + 1)
+    for i in range(spec_count):
+        spec_number = i + spec_start  # Spectrum number in Xspec
+        spec_arrinx = spec_number - 1  # Index in bgdapimwt array etc.
+        spec = xspec.AllData(spec_number)
         fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
-        m = xspec.AllModels(i + 1, model_name)
+        m = xspec.AllModels(spec_number, model_name)
 
         # Reference spectrum
-        if i == refspec['A'] or i == refspec['B']:
+        if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
 
             m.apec.kT.values = mod_intbgd['apec'][fpm]['kt']
             m.apec.Abundanc.values = mod_intbgd['apec'][fpm]['abundanc']
@@ -458,9 +500,9 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
             m.apec.Abundanc.frozen = True
             m.apec.Redshift.frozen = True
             m.apec.norm.values = np.sum(
-                bgddetimsum[i] * np.array(
+                bgddetimsum[spec_arrinx] * np.array(
                     mod_intbgd['apec'][fpm]['ifactors'])
-            ) / np.sum(bgddetimsum[i])
+            ) / np.sum(bgddetimsum[spec_arrinx])
 
             # 3 solar lines and 19 keV line -- load them from preset
             for attr in ['lorentz', 'lorentz_3', 'lorentz_4', 'lorentz_5']:
@@ -470,9 +512,9 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                 m_line.LineE.frozen = True
                 m_line.Width.frozen = True
                 m_line.norm.values = np.sum(
-                    bgddetimsum[i] * np.array(
+                    bgddetimsum[spec_arrinx] * np.array(
                         mod_intbgd[attr][fpm]['ifactors'])
-                ) / np.sum(bgddetimsum[i])
+                ) / np.sum(bgddetimsum[spec_arrinx])
 
             # All the other lines -- lorentz_6 through lorentz_(components) --
             # load them from preset and link to 19 keV line (lorentz_5). There
@@ -486,11 +528,11 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                 m_line.Width.frozen = True
 
                 norm_preset = np.sum(
-                    bgddetimsum[i] * np.array(
+                    bgddetimsum[spec_arrinx] * np.array(
                         mod_intbgd[attr][fpm]['ifactors'])
-                ) / np.sum(bgddetimsum[i])
+                ) / np.sum(bgddetimsum[spec_arrinx])
 
-                lorentz_5_norm_npar = i * m.nParameters + 16
+                lorentz_5_norm_npar = spec_arrinx * m.nParameters + 16
 
                 m_line.norm.link = '%e * %s:p%d' % (
                     norm_preset / m.lorentz_5.norm.values[0],
@@ -511,12 +553,22 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                 model_name, m_ref_npar_offset + 3)
 
             norm_preset = np.sum(
-                bgddetimsum[i] * np.array(
+                bgddetimsum[spec_arrinx] * np.array(
                     mod_intbgd['apec'][fpm]['ifactors'])
-            ) / np.sum(bgddetimsum[i])
+            ) / np.sum(bgddetimsum[spec_arrinx])
+
+            ##################
+            # Special consideration if not startig with spectrum 1.
+            # The reference preset may have changed after fitting, so we must
+            # calculate its original value for scaling.
+            ref_preset = np.sum(
+                bgddetimsum[refspec[fpm]] * np.array(
+                    mod_intbgd['apec'][fpm]['ifactors'])
+            ) / np.sum(bgddetimsum[refspec[fpm]])
+            ##################
 
             m.apec.norm.link = '%e * %s:p%d' % (
-                norm_preset / m_ref.apec.norm.values[0],
+                norm_preset / ref_preset,
                 model_name,
                 m_ref_npar_offset + 4
             )
@@ -536,13 +588,23 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                     model_name,
                     m_ref_npar_offset + 3 * (attr_n - 1) + 6)
 
+                ######################
+                # Special consideration if not startig with spectrum 1.
+                # Calculate the original value for scaling
+                ########################
+                ref_preset = np.sum(
+                    bgddetimsum[refspec[fpm]] * np.array(
+                        mod_intbgd[attr][fpm]['ifactors'])
+                ) / np.sum(bgddetimsum[refspec[fpm]])
+                ######################
+
                 norm_preset = np.sum(
                     bgddetimsum[i] * np.array(
                         mod_intbgd[attr][fpm]['ifactors'])
                 ) / np.sum(bgddetimsum[i])
 
                 m_line.norm.link = '%e * %s:p%d' % (
-                    norm_preset / getattr(m_ref, attr).norm.values[0],
+                    norm_preset / ref_preset,
                     model_name,
                     m_ref_npar_offset + 3 * (attr_n - 1) + 7
                 )
@@ -586,36 +648,65 @@ def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
     apbgd_name - Model component name of the aperture background model, must
         have been already added.
     """
+    # Starting spectrum number
+    if isinstance(src_number, int):
+        spec_start = src_number
+    else:
+        spec_start = 1
+
+    # Validate the requested startspec number
+    if not (xspec.AllData.nSpectra >= spec_start > 0):  # Must be within 1...nspec
+        raise Exception('Cannot apply model for spectrum: spectrum number out of range.')
+
+    # Number of spectra to process
+    spec_count = xspec.AllData.nSpectra - (spec_start - 1)
 
     # Add the response for this source.
-    for i in range(xspec.AllData.nSpectra):
-        s = xspec.AllData(i + 1)
+    for i in range(spec_count):
+        s = xspec.AllData(i + spec_start)
         s.multiresponse[model_num - 1] = s.response.rmf
         s.multiresponse[model_num - 1].arf = '%s/fcxb%s.arf' % (
             conf._AUX_DIR, util.fpm_parse(s.fileinfo('INSTRUME')))
 
-    xspec.Model('cutoffpl', model_name, model_num)
+    # Are we adding the model, or updating it?
+    if model_num not in xspec.AllModels.sources:
+        xspec.Model('cutoffpl', model_name, model_num)
+    elif model_name != xspec.AllModels.sources[model_num]:
+        # Model already exists when source spectrum is added. Proceed to adjust the params.
+        print('Error: the requested model number exists and does not match'
+              'specified model name. Cannot proceed with updating parameters!')
+        return False
 
     mod_fcxb_factor = 0.002353 * 1.5 * (2.45810736 / 3500 / 1000)**2
 
-    for i in range(xspec.AllData.nSpectra):
-        spec = xspec.AllData(i + 1)
+    for i in range(spec_count):
+        spec_number = i + spec_start  # Spectrum number in Xspec
+        spec_arrinx = spec_number - 1  # Index in bgdapimwt array etc.
+        spec = xspec.AllData(spec_number)
         fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
-        m = xspec.AllModels(i + 1, model_name)
+        m = xspec.AllModels(spec_number, model_name)
 
         m.cutoffpl.PhoIndex.link = '%s:p%d' % (
             apbgd_name, 3 * refspec[fpm] + 1)
         m.cutoffpl.HighECut.link = '%s:p%d' % (
             apbgd_name, 3 * refspec[fpm] + 2)
 
-        norm_preset = mod_fcxb_factor / 1000**2 * np.sum(bgddetimsum[i])
+        norm_preset = mod_fcxb_factor / 1000**2 * np.sum(bgddetimsum[spec_arrinx])
 
-        if i == refspec['A'] or i == refspec['B']:
+        if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
             m.cutoffpl.norm.values = norm_preset
         else:
             m_ref = xspec.AllModels(refspec[fpm] + 1, model_name)
+
+            ######################
+            # Special consideration if not startig with spectrum 1.
+            # Calculate the original value for scaling
+            ########################
+            ref_preset = mod_fcxb_factor / 1000**2 * np.sum(bgddetimsum[refspec[fpm]])
+            #######################
+
             m.cutoffpl.norm.link = '%e * %s:p%d' % (
-                norm_preset / m_ref.cutoffpl.norm.values[0],
+                norm_preset / ref_preset,
                 model_name,
                 3 * refspec[fpm] + 3)
 
@@ -652,17 +743,39 @@ def applymodel_intn(presets, refspec, bgddetimsum, model_num, src_number=None,
     """
     mod_intn = presets['models'][3]['components']
 
+    # Starting spectrum number
+    if isinstance(src_number, int):
+        spec_start = src_number
+    else:
+        spec_start = 1
+
+    # Validate the requested startspec number
+    if not (xspec.AllData.nSpectra >= spec_start > 0):  # Must be within 1...nspec
+        raise Exception('Cannot apply model for spectrum: spectrum number out of range.')
+
+    # Number of spectra to process
+    spec_count = xspec.AllData.nSpectra - (spec_start - 1)
+
     # Add the response for this source.
-    for i in range(xspec.AllData.nSpectra):
-        s = xspec.AllData(i + 1)
+    for i in range(spec_count):
+        s = xspec.AllData(i + spec_start)
         s.multiresponse[model_num - 1] = '%s/diag.rmf' % conf._AUX_DIR
 
-    xspec.Model('bknpower', model_name, model_num)
+    # Are we adding the model, or updating it?
+    if model_num not in xspec.AllModels.sources:
+        xspec.Model('bknpower', model_name, model_num)
+    elif model_name != xspec.AllModels.sources[model_num]:
+        # Model already exists when source spectrum is added. Proceed to adjust the params.
+        print('Error: the requested model number exists and does not match'
+              'specified model name. Cannot proceed with updating parameters!')
+        return False
 
-    for i in range(xspec.AllData.nSpectra):
-        spec = xspec.AllData(i + 1)
+    for i in range(spec_count):
+        spec_number = i + spec_start  # Spectrum number in Xspec
+        spec_arrinx = spec_number - 1  # Index in bgdapimwt array etc.
+        spec = xspec.AllData(spec_number)
         fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
-        m = xspec.AllModels(i + 1, model_name)
+        m = xspec.AllModels(spec_number, model_name)
 
         m.bknpower.PhoIndx1.values = mod_intn['bknpower'][fpm]['phoindx1']
         m.bknpower.BreakE.values = mod_intn['bknpower'][fpm]['breake']
@@ -672,15 +785,25 @@ def applymodel_intn(presets, refspec, bgddetimsum, model_num, src_number=None,
         m.bknpower.PhoIndx2.frozen = True
 
         norm_preset = np.sum(
-            bgddetimsum[i] * np.float64(mod_intn['bknpower'][fpm]['ifactors'])
+            bgddetimsum[spec_arrinx] * np.float64(mod_intn['bknpower'][fpm]['ifactors'])
         )
 
-        if i == refspec['A'] or i == refspec['B']:
+
+        if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
             m.bknpower.norm.values = norm_preset
         else:
+            ######################
+            # Special consideration if not startig with spectrum 1.
+            # Calculate the original value for scaling
+            ########################
+            ref_preset = np.sum(
+                bgddetimsum[refspec[fpm]] * np.float64(mod_intn['bknpower'][fpm]['ifactors'])
+            )
+            #######################
+
             m_ref = xspec.AllModels(refspec[fpm] + 1, model_name)
             m.bknpower.norm.link = '%e * %s:p%d' % (
-                norm_preset / m_ref.bknpower.norm.values[0],
+                norm_preset / ref_preset,
                 model_name,
                 4 * refspec[fpm] + 4
             )
