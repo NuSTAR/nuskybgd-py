@@ -143,10 +143,10 @@ def fit(args=[]):
     nuskybgd fit --help  # print a sample bgdinfo.json
 
 {b}DESCRIPTION{o}
-    Fit a multi-component background model to spectra from several background
-    regions and save the best-fit model to an xcm file. If the intended save
-    file exists, will retry 99 times with a number (2 to 100) appended to the
-    name.
+    Generate a multi-component background model for spectra from several
+    background regions and save the model containing preset normalizations to
+    an xcm file. If the intended save file exists, will retry 99 times with a
+    number (2 to 100) appended to the name.
 
     Required in bgdinfo.json:
 
@@ -276,7 +276,12 @@ Sample bgdinfo.json:
     numodel.applymodel_fcxb(refspec, bgddetimsum, 4)
     numodel.applymodel_intn(presets, refspec, bgddetimsum, 5)
     ##########
-    numodel.run_fit()
+
+    numodel.run_fit_settings()
+    # numodel.run_fit()  # Disabled, to give user xcm file with prefilled
+                         # values. Otherwise impossible to troubleshoot
+                         # difficult background regions (e.g. containing
+                         # additional sources)
 
     if keywords['savefile'] is None:
         numodel.save_xcm()

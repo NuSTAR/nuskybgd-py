@@ -928,7 +928,31 @@ def thaw_pars(parlist):
 
 def run_fit(statmethod='chi', method='leven 30000 1e-4', ignore='**-3. 150.-**'):
     """
-    Tell Xspec to perform the fitting using these settings.
+    Change the fit settings in Xspec, and run fit.
+
+    Inputs:
+
+    statmethod - (Optional) The statistical method to be used by Xspec. This
+        is passed directly to Xspec via an analogous command to 'statistic'.
+        By default this is 'chi', requiring spectra to be grouped into bins
+        with typically 30 counts at least.
+
+    method - (Optional) Optimization method for the fit. By default this is
+        'leven 30000 1e-4'. Any valid argument for the Xspec command 'fit' is
+        acceptable.
+
+    ignore - (Optional) Channels or energies to ignore. By default, this is
+        '**-3. 150.-**'. Any valid argument for the Xspec command 'ignore'
+        will work here.
+    """
+    run_fit_settings(statmethod=statmethod, method=method, ignore=ignore)
+    xspec.Fit.perform()
+
+
+def run_fit_settings(
+    statmethod='chi', method='leven 30000 1e-4', ignore='**-3. 150.-**'):
+    """
+    Change the fit settings in Xspec.
 
     Inputs:
 
@@ -948,7 +972,6 @@ def run_fit(statmethod='chi', method='leven 30000 1e-4', ignore='**-3. 150.-**')
     xspec.AllData.ignore(ignore)
     xspec.Fit.method = method
     xspec.Fit.statMethod = statmethod
-    xspec.Fit.perform()
 
 
 def save_xcm(prefix='bgdparams'):
