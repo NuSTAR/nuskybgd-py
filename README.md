@@ -237,9 +237,10 @@ files are in the directory `event_cl/bgd/`.
 ### 3.4 The background model
 
 Run `nuskybgd fit` (requires PyXspec) to create an XSPEC save file
-`bgdparams.xcm`, which contains the fitted background model.
+`bgdparams.xcm`, which contains the background models with preset
+normalizations.
 
-Create a file `bgdinfo.json` in `bgd/` with the following structure
+First, create a file `bgdinfo.json` in `bgd/` with the following structure
 (`nuskybgd fit --help` will print this template). The file names for the
 images are default values so you may not need to modify them, but the files
 for the background regions need to be updated for your data. The `"regfiles"`
@@ -283,18 +284,20 @@ list must correspond to the files in the `"bgfiles"` list.
 }
 ```
 
-Run `nuskybgd fit` directing stdout to a log file, then check the log to see
-if the task encountered any problems.
+Then, run `nuskybgd fit`, directing stdout to a log file. Check the log to see
+if the task encountered any problems. Most of the logged output comes from
+Xspec.
 
 ```
 # In event_cl/bgd/
 nuskybgd fit bgdinfo.json savefile=IC342bgd >& fitab.log
 ```
 
-After successfully running `nuskybgd fit`, the save file can be loaded in
-Xspec to recreate the same state. From there, the user can examine and tweak
-with the model. They can also save a modified version of it, preferably under
-a different name, to experiment with for the next step.
+After successfully running `nuskybgd fit`, the save file (in this case,
+`IC342bgd.xcm`) can be loaded in Xspec to recreate the same state. From there,
+the user can examine and tweak with the model. They can also save a modified
+version of it, preferably under a different name, to experiment with for the
+next step.
 
 ```
 # Start xspec, then input these commands
@@ -306,9 +309,27 @@ setplot command res y 1e-4 0.04
 plot ldata delchi
 ```
 
-Check how the model looks, and make any necessary adjustments. You can add
-more model components, but do not remove any of the generated ones or change
-their names.
+The generated background model then needs to be fitted to the background
+spectra.
+
+The first thing the user should check is whether the preset normalizations
+provide a close fit to the background spectra. If the background regions do
+not have extended emission, the user may be able to obtain a good background
+model by simply running `fit` in Xspec.
+
+> The save file contains settings for Xspec fit equivalent to the following:
+> `statistic chi; method leven 30000 1e-4; ignore **:**-3. 150.-**`
+> The user should change this setting as required.
+
+On the other hand, if the background regions do contain extended emission,
+simply running `fit` may not be enough, because the excess emission from the
+real source cannot be accounted for by the preset model components. In that
+case, the user must use discretion to account for the additional source(s).
+Due to the number of free parameters in the nuskybgd model and possible
+degeneracies with any added source models, it may be necessary to hand-tune
+the fit and not fit everything simultaneously.
+
+> Do not remove any of the nuskybgd generated models or change their names.
 
 When the model is OK, write the current state to a save file under a different
 name to the nuskybgd generated save file. This save file contains model
