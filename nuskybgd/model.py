@@ -418,7 +418,7 @@ def applymodel_apbgd(presets, refspec, bgdapimwt, model_num, src_number=None,
 
 
 def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
-                    model_name='intbgd'):
+                    model_name='intbgd', fix_line_ratios=False):
     """
     Xspec model component 3: intbgd (instrument background)
 
@@ -438,10 +438,11 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
            ---------------------------
                 sum (bgddetimsum)
 
+    *   If the option fix_line_ratios=True, Line 5 onward are linked to Line 4
+        using:
 
-    The other lines are scaled to this one using:
+            sum(ifactor * bgddetimsum)
 
-    sum(ifactor * bgddetimsum)
 
     Other spectra:
 
@@ -549,8 +550,9 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                 ) / np.sum(bgddetimsum[spec_arrinx])
 
             # All the other lines -- lorentz_6 through lorentz_(components) --
-            # load them from preset and link to 19 keV line (lorentz_5). There
-            # are 4+3*3=13 parameters before lorentz_5.
+            # if fix_line_ratios=True, scale their initial norm to 19 keV line
+            # (lorentz_5) using preset ratios. There are 4+3*3=13 parameters
+            # before lorentz_5.
             for attr_n in range(5, len(mod_intbgd)):
                 attr = 'lorentz_%d' % (attr_n + 1)
                 m_line = getattr(m, attr)
@@ -564,12 +566,15 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                         mod_intbgd[attr][fpm]['ifactors'])
                 ) / np.sum(bgddetimsum[spec_arrinx])
 
-                lorentz_5_norm_npar = spec_arrinx * m.nParameters + 16
+                if fix_line_ratios:
+                    lorentz_5_norm_npar = spec_arrinx * m.nParameters + 16
 
-                m_line.norm.link = '%e * %s:p%d' % (
-                    norm_preset / m.lorentz_5.norm.values[0],
-                    model_name,
-                    lorentz_5_norm_npar)
+                    m_line.norm.link = '%e * %s:p%d' % (
+                        norm_preset / m.lorentz_5.norm.values[0],
+                        model_name,
+                        lorentz_5_norm_npar)
+                else:
+                    m_line.norm.values = norm_preset
 
         else:
             # Link to ref spectrum
