@@ -422,42 +422,41 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
     """
     Xspec model component 3: intbgd (instrument background)
 
-    An apec, then many lorentz lines. Each lorentz has 3 parameters (LineE,
-    Width, norm); apec has 4 parameters (kT, Abundanc, Redshift, norm).
+    This model consists of an APEC component followed by many lorentz lines.
+    APEC has 4 parameters (kT, Abundanc, Redshift, norm). Each lorentz
+    component has 3 parameters (LineE, Width, norm);
 
-    For the reference spectra:
+    For the reference spectra (one from each telescope):
 
-    apec params are loaded from preset.
+    *   APEC params are loaded from preset.
 
-    Lines 1-3 (lorentz, lorentz_3, lorentz_4) are loaded from preset.
+    *   Lines 1-3 (lorentz, lorentz_3, lorentz_4) are loaded from preset. The
+        first two (3 and 6 keV) are probably solar related, and the third (10
+        keV) is poorly fit.
 
-    Line 4 (19 keV, lorentz_5) is loaded from preset (detector area weighted
-    sum of pre-determined values for each detector):
+    *   From Line 4 (19 keV, lorentz_5) onward, they are loaded from preset
+        (detector area weighted sum of pre-determined values for each
+        detector):
 
-    norm = sum (ifactor * bgddetimsum)
-           ---------------------------
-                sum (bgddetimsum)
+            norm = sum (ifactor * bgddetimsum)
+                   ---------------------------
+                        sum (bgddetimsum)
 
     *   If the option fix_line_ratios=True, Line 5 onward are linked to Line 4
         using:
 
             sum(ifactor * bgddetimsum)
 
+    For the other spectra:
 
-    Other spectra:
+    *   All of the normalizations are linked to their reference spec
+        counterparts.
 
-    Lines 1-3 scale to refspec lines 1-3 (lorentz, lorentz_3, lorentz_4).
 
-    Line 4 scale to refspec line 4 (lorentz_5).
+    Note: due to perculiar model component numbering in XSPEC, as in the
+    following,
 
-    Other lines scale to line 4 (lorentz_5).
-
-    apec scale to refspec apec norm.
-
-    Note: due to perculiar model component numbering by XSPEC,
-    as in the following,
-
-    Model intbgd:apec<1> + lorentz<2> + lorentz<3> + lorentz<4> + ...
+        Model intbgd:apec<1> + lorentz<2> + lorentz<3> + lorentz<4> + ...
 
     In this case, the lorentz components have references lorentz, lorentz_3,
     lorentz_4, ... etc. (skipping over lorentz_2). This numbering appears to
@@ -466,22 +465,22 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
 
     Inputs:
 
-    presets - Preset model parameter values read from file.
+        presets - Preset model parameter values read from file.
 
-    refspec - Dictionary with 'A' and 'B' keys whose values are the 0-based
-        index of the reference spectrum for FPMA and FPMB.
+        refspec - Dictionary with 'A' and 'B' keys whose values are the 0-based
+            index of the reference spectrum for FPMA and FPMB.
 
-    bgddetimsum - List of area inside background region for each CCD.
+        bgddetimsum - List of area inside background region for each CCD.
 
-    model_num - Model component number in Xspec, cannot be the same as another
-        model or it will replace.
+        model_num - Model component number in Xspec, cannot be the same as
+            another model or it will replace.
 
-    src_number - (Optional) Position of first spectrum to process, if not
-        starting at 1. This is useful for rescaling background model parameters
-        for a newly added spectrum.
+        src_number - (Optional) Position of first spectrum to process, if not
+            starting at 1. This is useful for rescaling background model
+            parameters for a newly added spectrum.
 
-    model_name - (Optional) Model component name in Xspec, default 'intbgd',
-        cannot be the same as another model.
+        model_name - (Optional) Model component name in Xspec, default 'intbgd',
+            cannot be the same as another model.
     """
     mod_intbgd = presets['models'][1]['components']
 
@@ -508,7 +507,8 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
         xspec.Model('apec' + '+lorentz' * (len(mod_intbgd) - 1),
                 model_name, model_num)
     elif model_name != xspec.AllModels.sources[model_num]:
-        # Model already exists when source spectrum is added. Proceed to adjust the params.
+        # Model already exists when source spectrum is added. Proceed to adjust
+        # the params.
         print('Error: the requested model number (%d, %s) exists and does not match '
               'specified model name (%s). Cannot proceed with updating parameters!' %(
               model_num, xspec.AllModels.sources[model_num], model_name))
