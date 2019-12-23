@@ -660,7 +660,7 @@ def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
 
     The norm of cutoffpl is to be computed from
 
-    0.002353 * 1.5 * (2.45810736/3500/1000)^2 * backscal
+    0.002353 * 1.5 * (2.45810736/3600*1000)^2 * backscal
 
     backscal = np.sum(regmask * bgddetim) / 1000^2
 
@@ -714,7 +714,7 @@ def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
               'specified model name. Cannot proceed with updating parameters!')
         return False
 
-    mod_fcxb_factor = 0.002353 * 1.5 * (2.45810736 / 3500 / 1000)**2
+    mod_fcxb_factor = 0.002353 * 1.5 * (2.45810736 / 3600 * 1000)**2
 
     for i in range(spec_count):
         spec_number = i + spec_start  # Spectrum number in Xspec
