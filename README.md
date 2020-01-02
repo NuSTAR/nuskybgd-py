@@ -246,6 +246,13 @@ images are default values so you may not need to modify them, but the files
 for the background regions need to be updated for your data. The `"regfiles"`
 list must correspond to the files in the `"bgfiles"` list.
 
+The setting "fcxb_config" "links" are used to tie Xspec model parameters for
+the FCXB model normalization. These are comprised of a list of two values for
+the spectrum numbers to tie together. In the example below, all of the spectra
+for FPMB are tied to the spectra for identical regions from FPMA. Note that
+the Xspec spectrum number starts at 1. Without this setting, all of the FCXB
+normalizations are set to free.
+
 ```json
 {
     "bgfiles": [
@@ -279,6 +286,14 @@ list must correspond to the files in the `"bgfiles"` list.
             "det1Bim.fits",
             "det2Bim.fits",
             "det3Bim.fits"
+        ]
+    },
+
+    "fcxb_config": {
+        "links": [
+            [1, 2],
+            [3, 4],
+            [5, 6]
         ]
     }
 }

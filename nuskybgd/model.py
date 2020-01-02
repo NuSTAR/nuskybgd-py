@@ -674,7 +674,6 @@ def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
     model_num - Model component number in Xspec, cannot be the same as another
         model or it will replace.
 
-
     model_name - Model component name in Xspec, default 'fcxb', cannot be the
         same as another model.
 
@@ -730,22 +729,53 @@ def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
 
         norm_preset = mod_fcxb_factor / 1000**2 * np.sum(bgddetimsum[spec_arrinx])
 
-        if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
-            m.cutoffpl.norm.values = norm_preset
-        else:
-            m_ref = xspec.AllModels(refspec[fpm] + 1, model_name)
+        m.cutoffpl.norm.values = norm_preset
 
-            ######################
-            # Special consideration if not startig with spectrum 1.
-            # Calculate the original value for scaling
-            ########################
-            ref_preset = mod_fcxb_factor / 1000**2 * np.sum(bgddetimsum[refspec[fpm]])
-            #######################
+        # if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
+        #     m.cutoffpl.norm.values = norm_preset
+        # else:
+        #     m_ref = xspec.AllModels(refspec[fpm] + 1, model_name)
 
-            m.cutoffpl.norm.link = '%e * %s:p%d' % (
-                norm_preset / ref_preset,
-                model_name,
-                3 * refspec[fpm] + 3)
+        #     ######################
+        #     # Special consideration if not startig with spectrum 1.
+        #     # Calculate the original value for scaling
+        #     ########################
+        #     ref_preset = mod_fcxb_factor / 1000**2 * np.sum(bgddetimsum[refspec[fpm]])
+        #     #######################
+
+        #     m.cutoffpl.norm.link = '%e * %s:p%d' % (
+        #         norm_preset / ref_preset,
+        #         model_name,
+        #         3 * refspec[fpm] + 3)
+
+
+def fcxb_linkab(links, model_name='fcxb'):
+    """
+    Xspec model component 4: fcxb (focused CXB)
+
+    Tie normalizations between A and B regions that cover the same region of
+    sky.
+
+    Inputs:
+
+    links - List of arrays, [ispec1, ispec2], to link Xspec spectrum number 2
+    to spectrum number 1.
+
+    model_name - Model component name in Xspec, default 'fcxb', cannot be the
+        same as another model.
+    """
+    npars = xspec.AllModels(1, model_name).nParameters
+
+    for i in range(len(links)):
+        # These are expected to be Xspec spectrum numbers (first one is 1)
+        link_ref = links[i][0]
+        link_tied = links[i][1]
+        norm_offset = npars * (link_ref - 1)
+        m = xspec.AllModels(link_tied, model_name)
+        m.cutoffpl.norm.link = '%s:p%d' % (
+            model_name,
+            norm_offset + 3
+            )
 
 
 def applymodel_intn(presets, refspec, bgddetimsum, model_num, src_number=None,
