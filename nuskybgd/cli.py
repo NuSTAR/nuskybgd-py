@@ -212,6 +212,14 @@ Sample bgdinfo.json:
             "det2Bim.fits",
             "det3Bim.fits"
         ]
+    },
+
+    "fcxb_config": {
+        "links": [
+            [1, 2],
+            [3, 4],
+            [5, 6]
+        ]
     }
 }
 """
@@ -275,6 +283,8 @@ Sample bgdinfo.json:
     numodel.applymodel_intbgd(presets, refspec, bgddetimsum, 3)
     numodel.applymodel_fcxb(refspec, bgddetimsum, 4)
     numodel.applymodel_intn(presets, refspec, bgddetimsum, 5)
+    if 'fcxb_config' in bgdinfo and 'links' in bgdinfo['fcxb_config']:
+        numodel.fcxb_linkab(bgdinfo['fcxb_config']['links'])
     ##########
 
     numodel.run_fit_settings()
