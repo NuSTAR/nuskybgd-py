@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+
+"""NAME
+    mkimgs
+    Create photon images filtered by energy
+
+USAGE
+    mkimgs evtfile outname elow ehigh
+
+DESCRIPTION
+    Use xselect to create an image of photon counts binned in sky coordinates,
+    and an image of photo counts binned in detector space.
+
+    For example, working on a cleaned event file from the archive:
+
+        mkimgs nu70001000002A01_cl.evt.gz im3to25keV 3 25
+
+    A file named im3to25keV.xco is first created containing xselect commands,
+    which is then run to produce the photon counts images, im3to25keV.fits
+    (sky plane), and im3to25keVdet.fits (detector space).
+
+    evtfile - The event file (gzipped file is OK, no need to decompress files
+        obtained from the archive).
+    outname - Root name of the output files.
+    elow - Lower energy bound in keV.
+    ehigh - Upper energy bound in keV.
+"""
+
+import sys
+import os
+
+
+def mkimg(evtfile, outname, elow, ehigh):
+    # Convert to channels
+    clow = str(int((elow - 1.6) / 0.04 + 1))
+    chigh = str(int((ehigh - 1.6) / 0.04))
+
+    template = """session1
+read event {evtfile}
+.
+yes
+filter pha_cutoff {clow} {chigh}
+extract image
+save image
+{outname}.fits
+set xyname det1x det1y
+filter column "RAWX=1:30 RAWY=1:30"
+extract image
+save image
+{outname}det.fits
+exit
+no
+"""
+
+    with open('%s.xco' % outname, 'w') as fh:
+        cmd = template.format(
+            evtfile=evtfile,
+            clow=clow,
+            chigh=chigh,
+            outname=outname)
+        fh.write(cmd)
+
+    os.system('xselect @%s.xco' % outname)
+
+
+if __name__ == '__main__':
+
+    if len(sys.argv) != 5:
+        print(__doc__)
+    else:
+        evtfile = sys.argv[1]
+        outname = sys.argv[2]
+        elow = float(sys.argv[3])
+        ehigh = float(sys.argv[4])
+
+        if not os.path.exists(evtfile):
+            raise Exception('Event file not found.')
+            sys.exit(1)
+
+        if not (ehigh > elow):
+            raise ValueError('ehigh must be greater than elow.')
+            sys.exit(1)
+
+        mkimg(evtfile, outname, elow, ehigh)
+
+    sys.exit(0)
