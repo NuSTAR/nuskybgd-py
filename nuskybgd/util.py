@@ -126,21 +126,21 @@ def check_header_gti(hdr):
 
     Require the following keywords:
 
-    TELESCOP = 'NuSTAR'
-    EXTNAME  = 'STDGTI'  # ? is a digit 1 to 4
-    NAXIS    = 2
+    TELESCOP = 'NuSTAR'        / Telescope (mission) name
+    HDUCLAS1  = 'GTI'          / File contains Good Time Intervals
+    NAXIS    = 2               / 2-dimensional binary table
 
     Require the following fields:
 
-    TTYPE1   = 'START'
-    TUNIT1   = 's' or 'sec'
-    TTYPE2   = 'STOP'
-    TUNIT2   = 's' or 'sec'
+    TTYPE1   = 'START'         / label for field   1
+    TUNIT1   = 's' or 'sec'    / physical unit of field
+    TTYPE2   = 'STOP'          / label for field   2
+    TUNIT2   = 's' or 'sec'    / physical unit of field
     """
     try:
         if not (
             hdr['TELESCOP'] == 'NuSTAR' and
-            hdr['EXTNAME'] == 'STDGTI' and
+            hdr['HDUCLAS1'] == 'GTI' and
             hdr['NAXIS'] == 2 and
             hdr['TTYPE1'] == 'START' and
             hdr['TUNIT1'] in ('s', 'sec') and

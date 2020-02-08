@@ -953,7 +953,8 @@ def aspecthist(args=[]):
             gtiext = ext
             break
     if gtiext is None:
-        print('No GTI info in the specified file %s.' % gtifile)
+        print('Error: no GTI info in the specified file %s.' % gtifile)
+        return 1
     else:
         print('Found extension %s.' % gtiext.header['EXTNAME'])
 
