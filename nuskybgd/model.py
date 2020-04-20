@@ -523,58 +523,125 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
         fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
         m = xspec.AllModels(spec_number, model_name)
 
+        # Parameter tracker apec --> 4 params
+        
         # Reference spectrum
         if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
+            m_ref_npar_offset = m.nParameters * refspec[fpm]
 
-            m.apec.kT.values = mod_intbgd['apec'][fpm]['kt']
-            m.apec.Abundanc.values = mod_intbgd['apec'][fpm]['abundanc']
-            m.apec.Redshift.values = mod_intbgd['apec'][fpm]['redshift']
-            m.apec.kT.frozen = True
-            m.apec.Abundanc.frozen = True
-            m.apec.Redshift.frozen = True
-            m.apec.norm.values = np.sum(
-                bgddetimsum[spec_arrinx] * np.array(
-                    mod_intbgd['apec'][fpm]['ifactors'])
-            ) / np.sum(bgddetimsum[spec_arrinx])
+            apec_norm = np.sum(
+                               bgddetimsum[spec_arrinx] * np.array(
+                                  mod_intbgd['apec'][fpm]['ifactors'])
+                                ) / np.sum(bgddetimsum[spec_arrinx])
+            par_dict = {1:f"{mod_intbgd['apec'][fpm]['kt']}, -0.1",
+                          2:f"{mod_intbgd['apec'][fpm]['abundanc']}, -0.1",
+                          3:f"{mod_intbgd['apec'][fpm]['redshift']}, -0.1",
+                          4:f"{apec_norm}"}
+            parnum =5   
+            
+#           The old way...this is slow because it evaluates the model every time
+#           you set the parameters this way.
+#
+#
+#             m.apec.kT.values = mod_intbgd['apec'][fpm]['kt']
+#             m.apec.Abundanc.values = mod_intbgd['apec'][fpm]['abundanc']
+#             m.apec.Redshift.values = mod_intbgd['apec'][fpm]['redshift']
+#             m.apec.kT.frozen = True
+#             m.apec.Abundanc.frozen = True
+#             m.apec.Redshift.frozen = True
+#             m.apec.norm.values = np.sum(
+#                 bgddetimsum[spec_arrinx] * np.array(
+#                     mod_intbgd['apec'][fpm]['ifactors'])
+#             ) / np.sum(bgddetimsum[spec_arrinx])
+
 
             # 3 solar lines and 19 keV line -- load them from preset
+            # Leave these free, zero them out if you don't want them.
             for attr in ['lorentz', 'lorentz_3', 'lorentz_4', 'lorentz_5']:
-                m_line = getattr(m, attr)
-                m_line.LineE.values = mod_intbgd[attr][fpm]['linee']
-                m_line.Width.values = mod_intbgd[attr][fpm]['width']
-                m_line.LineE.frozen = True
-                m_line.Width.frozen = True
-                m_line.norm.values = np.sum(
+                line_norm = np.sum(
                     bgddetimsum[spec_arrinx] * np.array(
                         mod_intbgd[attr][fpm]['ifactors'])
                 ) / np.sum(bgddetimsum[spec_arrinx])
+                
+                ref_norm = line_norm
+                ref_par = int(parnum+2) + m_ref_npar_offset
+                this_par = {parnum:f"{mod_intbgd[attr][fpm]['linee']}, -0.1",
+                        parnum+1:f"{mod_intbgd[attr][fpm]['width']}, -0.1",
+                        parnum+2:f"{line_norm}, 0.1"}
+                par_dict.update(this_par)
+                parnum += 3
+
+                continue
+                # Below is the old way to do this
+#                 m_line = getattr(m, attr)
+#                 m_line.LineE.values = mod_intbgd[attr][fpm]['linee']
+#                 m_line.Width.values = mod_intbgd[attr][fpm]['width']
+#                 m_line.LineE.frozen = True
+#                 m_line.Width.frozen = True
+#                 m_line.norm.values = np.sum(
+#                     bgddetimsum[spec_arrinx] * np.array(
+#                         mod_intbgd[attr][fpm]['ifactors'])
+#                 ) / np.sum(bgddetimsum[spec_arrinx])
+                
 
             # All the other lines -- lorentz_6 through lorentz_(components) --
             # if fix_line_ratios=True, scale their initial norm to 19 keV line
             # (lorentz_5) using preset ratios. There are 4+3*3=13 parameters
             # before lorentz_5.
+            ref_set = False
             for attr_n in range(5, len(mod_intbgd)):
                 attr = 'lorentz_%d' % (attr_n + 1)
-                m_line = getattr(m, attr)
-                m_line.LineE.values = mod_intbgd[attr][fpm]['linee']
-                m_line.Width.values = mod_intbgd[attr][fpm]['width']
-                m_line.LineE.frozen = True
-                m_line.Width.frozen = True
-
-                norm_preset = np.sum(
-                    bgddetimsum[spec_arrinx] * np.array(
+                line_norm = np.sum(
+                        bgddetimsum[spec_arrinx] * np.array(
                         mod_intbgd[attr][fpm]['ifactors'])
                 ) / np.sum(bgddetimsum[spec_arrinx])
-
-                if fix_line_ratios:
-                    lorentz_5_norm_npar = spec_arrinx * m.nParameters + 16
-
-                    m_line.norm.link = '%e * %s:p%d' % (
-                        norm_preset / m.lorentz_5.norm.values[0],
-                        model_name,
-                        lorentz_5_norm_npar)
+                
+                if not ref_set:
+                    # If this is set, then enabled the logic to make all lines relative
+                    # to the reference line.
+                    if fix_line_ratios:
+                        ref_set = True
+                    ref_norm = line_norm
+                    ref_par = int(parnum+2)+ m_ref_npar_offset
+                    this_par = {parnum:f"{mod_intbgd[attr][fpm]['linee']}, -0.1",
+                            parnum+1:f"{mod_intbgd[attr][fpm]['width']}, -0.1",
+                            parnum+2:f"{line_norm}, 0.1"}
                 else:
-                    m_line.norm.values = norm_preset
+                    rel_norm = line_norm / ref_norm                
+                    this_par = {parnum:f"{mod_intbgd[attr][fpm]['linee']}, -0.1",
+                                parnum+1:f"{mod_intbgd[attr][fpm]['width']}, -0.1",
+                                parnum+2:f"={model_name}:{ref_par}*{rel_norm}"}
+                par_dict.update(this_par)
+                parnum += 3
+
+                continue
+                
+                # Replaced by above
+#                 attr = 'lorentz_%d' % (attr_n + 1)
+#                 m_line = getattr(m, attr)
+#                 m_line.LineE.values = mod_intbgd[attr][fpm]['linee']
+#                 m_line.Width.values = mod_intbgd[attr][fpm]['width']
+#                 m_line.LineE.frozen = True
+#                 m_line.Width.frozen = True
+# 
+#                 norm_preset = np.sum(
+#                     bgddetimsum[spec_arrinx] * np.array(
+#                         mod_intbgd[attr][fpm]['ifactors'])
+#                 ) / np.sum(bgddetimsum[spec_arrinx])
+# 
+#                 if fix_line_ratios:
+#                     lorentz_5_norm_npar = spec_arrinx * m.nParameters + 16
+# 
+#                     m_line.norm.link = '%e * %s:p%d' % (
+#                         norm_preset / m.lorentz_5.norm.values[0],
+#                         model_name,
+#                         lorentz_5_norm_npar)
+#                 else:
+#                     m_line.norm.values = norm_preset
+
+            # Actually apply the changes here
+            m.setPars(par_dict)
+
 
         else:
             # Link to ref spectrum
@@ -582,12 +649,8 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
             m_ref_npar_offset = m.nParameters * refspec[fpm]
 
             # Link apec to refspec
-            m.apec.kT.link = '%s:p%d' % (
-                model_name, m_ref_npar_offset + 1)
-            m.apec.Abundanc.link = '%s:p%d' % (
-                model_name, m_ref_npar_offset + 2)
-            m.apec.Redshift.link = '%s:p%d' % (
-                model_name, m_ref_npar_offset + 3)
+            
+
 
             norm_preset = np.sum(
                 bgddetimsum[spec_arrinx] * np.array(
@@ -604,12 +667,26 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
             ) / np.sum(bgddetimsum[refspec[fpm]])
             ##################
 
-            m.apec.norm.link = '%e * %s:p%d' % (
-                norm_preset / ref_preset,
-                model_name,
-                m_ref_npar_offset + 4
-            )
 
+#             m.apec.kT.link = '%s:p%d' % (
+#                 model_name, m_ref_npar_offset + 1)
+#             m.apec.Abundanc.link = '%s:p%d' % (
+#                 model_name, m_ref_npar_offset + 2)
+#             m.apec.Redshift.link = '%s:p%d' % (
+#                 model_name, m_ref_npar_offset + 3)
+#             m.apec.norm.link = '%e * %s:p%d' % (
+#                 norm_preset / ref_preset,
+#                 model_name,
+#                 m_ref_npar_offset + 4
+#             )
+# 
+            par_dict = {1:f"={model_name}:{m_ref_npar_offset+1}",
+                        2:f"={model_name}:{m_ref_npar_offset+2}",
+                        3:f"={model_name}:{m_ref_npar_offset+3}",
+                        4:f"={norm_preset/ref_preset}*{model_name}:{m_ref_npar_offset+4}"}
+
+
+            parnum=5
             # All lines --- load values from preset and link to refspec
             for attr_n in range(1, len(mod_intbgd)):
                 if attr_n == 1:
@@ -617,13 +694,6 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                 else:
                     attr = 'lorentz_%d' % (attr_n + 1)
 
-                m_line = getattr(m, attr)
-                m_line.LineE.link = '%s:p%d' % (
-                    model_name,
-                    m_ref_npar_offset + 3 * (attr_n - 1) + 5)
-                m_line.Width.link = '%s:p%d' % (
-                    model_name,
-                    m_ref_npar_offset + 3 * (attr_n - 1) + 6)
 
                 ######################
                 # Special consideration if not startig with spectrum 1.
@@ -639,12 +709,27 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                     bgddetimsum[i] * np.array(
                         mod_intbgd[attr][fpm]['ifactors'])
                 ) / np.sum(bgddetimsum[i])
+                
+#                m_line = getattr(m, attr)
+#                 m_line.LineE.link = '%s:p%d' % (
+#                     model_name,
+#                     m_ref_npar_offset + 3 * (attr_n - 1) + 5)
+#                 m_line.Width.link = '%s:p%d' % (
+#                     model_name,
+#                     m_ref_npar_offset + 3 * (attr_n - 1) + 6)
+#                 m_line.norm.link = '%e * %s:p%d' % (
+#                     norm_preset / ref_preset,
+#                     model_name,
+#                     m_ref_npar_offset + 3 * (attr_n - 1) + 7
+#                 )
 
-                m_line.norm.link = '%e * %s:p%d' % (
-                    norm_preset / ref_preset,
-                    model_name,
-                    m_ref_npar_offset + 3 * (attr_n - 1) + 7
-                )
+                this_par = {parnum:f"={model_name}:{parnum+m_ref_npar_offset}",
+                            parnum+1:f"={model_name}:{parnum+1+m_ref_npar_offset}",
+                            parnum+2:f"={model_name}:{parnum+2+m_ref_npar_offset} * {norm_preset/ref_preset}"}
+                par_dict.update(this_par)
+                parnum += 3
+
+            m.setPars(par_dict)
 
 
 def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
