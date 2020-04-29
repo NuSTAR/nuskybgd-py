@@ -393,6 +393,11 @@ def applymodel_apbgd(presets, refspec, bgdapimwt, model_num, src_number=None,
               'specified model name. Cannot proceed with updating parameters!')
         return False
 
+    # Parameters for cutoffpl: 3
+    # PhoIndex HighECut norm
+
+    allpars = []
+
     for i in range(spec_count):
         spec_number = i + spec_start  # Spectrum number in Xspec
         spec_arrinx = spec_number - 1  # Index in bgdapimwt array etc.
@@ -400,21 +405,35 @@ def applymodel_apbgd(presets, refspec, bgdapimwt, model_num, src_number=None,
         fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
         m = xspec.AllModels(spec_number, model_name)
 
+        newpar = {}
+
+        _pars = mod_apbgd['cutoffpl'][fpm]
+
         if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
-            m.cutoffpl.PhoIndex.values = mod_apbgd['cutoffpl'][fpm]['phoindex']
-            m.cutoffpl.HighECut.values = mod_apbgd['cutoffpl'][fpm]['highecut']
-            m.cutoffpl.PhoIndex.frozen = True
-            m.cutoffpl.HighECut.frozen = True
-            m.cutoffpl.norm.values = 0.002353 / 32 * bgdapimwt[spec_arrinx]
+
+            norm = 0.002353 / 32 * bgdapimwt[spec_arrinx]
+
+            newpar.update({
+                1: f"{_pars['phoindex']}, -0.01",
+                2: f"{_pars['highecut']}, -0.01",
+                3: f"{norm:e}, 0.01"
+            })
+
         else:
-            m.cutoffpl.PhoIndex.link = '%s:p%d' % (
-                model_name, 3 * refspec[fpm] + 1)
-            m.cutoffpl.HighECut.link = '%s:p%d' % (
-                model_name, 3 * refspec[fpm] + 2)
-            m.cutoffpl.norm.link = '%e * %s:p%d' % (
-                bgdapimwt[spec_arrinx] / bgdapimwt[refspec[fpm]],
-                model_name,
-                3 * refspec[fpm] + 3)
+
+            refparoffset = 3 * refspec[fpm]
+
+            ratio = bgdapimwt[spec_arrinx] / bgdapimwt[refspec[fpm]]
+
+            newpar.update({
+                1: f"={model_name}:{refparoffset+1}",
+                2: f"={model_name}:{refparoffset+2}",
+                3: f"={ratio:e} * {model_name}:{refparoffset+3}"
+            })
+
+        allpars.extend([m, newpar])
+
+    xspec.AllModels.setPars(*allpars)
 
 
 def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
@@ -519,6 +538,13 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
                   model_num, xspec.AllModels.sources[model_num], model_name))
         return False
 
+    # Parameters for apec:
+    # kT Abundanc Redshift norm
+    # Parameters for lorentz
+    # LineE Width norm
+
+    allpars = []
+
     # There are in total (len(mod_intbgd) * 3 + 1) parameters per spectrum. 4
     # parameters for apec and 3 parameters for lorentz.
     for i in range(spec_count):
@@ -527,6 +553,8 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
         spec = xspec.AllData(spec_number)
         fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
         m = xspec.AllModels(spec_number, model_name)
+
+        newpar = {}
 
         # Reference spectrum
         if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
@@ -537,10 +565,14 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
             apec_norm = np.sum(
                 bgddetimsum[spec_arrinx] * np.array(_pars['ifactors'])
             ) / np.sum(bgddetimsum[spec_arrinx])
-            par_dict = {1: f"{_pars['kt']}, -0.01",
-                        2: f"{_pars['abundanc']}, -0.001",
-                        3: f"{_pars['redshift']}, -0.01",
-                        4: f"{apec_norm:e}"}
+
+            newpar.update({
+                1: f"{_pars['kt']}, -0.01",
+                2: f"{_pars['abundanc']}, -0.001",
+                3: f"{_pars['redshift']}, -0.01",
+                4: f"{apec_norm:e}"
+            })
+
             parnum = 5
 
             # 3 solar lines and 19 keV line -- load them from preset
@@ -553,10 +585,12 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
                     bgddetimsum[spec_arrinx] * np.array(_pars['ifactors'])
                 ) / np.sum(bgddetimsum[spec_arrinx])
 
-                this_par = {parnum: f"{_pars['linee']}, -0.05",
-                            parnum + 1: f"{_pars['width']}, -0.05",
-                            parnum + 2: f"{line_norm}, 0.01"}
-                par_dict.update(this_par)
+                newpar.update({
+                    parnum: f"{_pars['linee']}, -0.05",
+                    parnum + 1: f"{_pars['width']}, -0.05",
+                    parnum + 2: f"{line_norm}, 0.01"
+                })
+
                 parnum += 3
 
             # All the other lines -- lorentz_6 through lorentz_(components) --
@@ -572,7 +606,7 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
                     bgddetimsum[spec_arrinx] * np.array(_pars['ifactors'])
                 ) / np.sum(bgddetimsum[spec_arrinx])
 
-                par_dict.update({
+                newpar.update({
                     parnum: f"{_pars['linee']}, -0.05",
                     parnum + 1: f"{_pars['width']}, -0.05"
                 })
@@ -582,12 +616,12 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
 
                     line_ratio = norm_preset / m.lorentz_5.norm.values[0]
 
-                    par_dict.update({
+                    newpar.update({
                         parnum + 2: f"={line_ratio:e} * {model_name}:{lorentz_5_norm_npar}"
                     })
 
                 else:
-                    par_dict.update({
+                    newpar.update({
                         parnum + 2: f"{norm_preset:e}, 0.01"
                     })
 
@@ -617,12 +651,15 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
 
             line_ratio = norm_preset / ref_preset
 
-            par_dict = {1: f"={model_name}:{m_ref_npar_offset+1}",
-                        2: f"={model_name}:{m_ref_npar_offset+2}",
-                        3: f"={model_name}:{m_ref_npar_offset+3}",
-                        4: f"={line_ratio:e} * {model_name}:{m_ref_npar_offset+4}"}
+            newpar.update({
+                1: f"={model_name}:{m_ref_npar_offset+1}",
+                2: f"={model_name}:{m_ref_npar_offset+2}",
+                3: f"={model_name}:{m_ref_npar_offset+3}",
+                4: f"={line_ratio:e} * {model_name}:{m_ref_npar_offset+4}"
+            })
 
             parnum = 5
+
             # All lines --- load values from preset and link to refspec
             for attr_n in range(1, len(mod_intbgd)):
                 if attr_n == 1:
@@ -649,13 +686,17 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
 
                 line_ratio = norm_preset / ref_preset
 
-                this_par = {parnum: f"={model_name}:{parnum+m_ref_npar_offset}",
-                            parnum + 1: f"={model_name}:{parnum+1+m_ref_npar_offset}",
-                            parnum + 2: f"={line_ratio:e} * {model_name}:{parnum+2+m_ref_npar_offset}"}
-                par_dict.update(this_par)
+                newpar.update({
+                    parnum: f"={model_name}:{parnum+m_ref_npar_offset}",
+                    parnum + 1: f"={model_name}:{parnum+1+m_ref_npar_offset}",
+                    parnum + 2: f"={line_ratio:e} * {model_name}:{parnum+2+m_ref_npar_offset}"
+                })
+
                 parnum += 3
 
-        m.setPars(par_dict)
+        allpars.extend([m, newpar])
+
+    xspec.AllModels.setPars(*allpars)
 
 
 def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
@@ -724,7 +765,12 @@ def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
               'specified model name. Cannot proceed with updating parameters!')
         return False
 
+    # Parameters for cutoffpl: 3
+    # PhoIndex HighECut norm
+
     mod_fcxb_factor = 0.002353 * 1.5 * (2.45810736 / 3600 * 1000)**2
+
+    allpars = []
 
     for i in range(spec_count):
         spec_number = i + spec_start  # Spectrum number in Xspec
@@ -733,14 +779,17 @@ def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
         fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
         m = xspec.AllModels(spec_number, model_name)
 
-        m.cutoffpl.PhoIndex.link = '%s:p%d' % (
-            apbgd_name, 3 * refspec[fpm] + 1)
-        m.cutoffpl.HighECut.link = '%s:p%d' % (
-            apbgd_name, 3 * refspec[fpm] + 2)
+        refparoffset = 3 * refspec[fpm]
 
         norm_preset = mod_fcxb_factor / 1000**2 * np.sum(bgddetimsum[spec_arrinx])
 
-        m.cutoffpl.norm.values = norm_preset
+        newpar = {
+            1: f"={apbgd_name}:{refparoffset+1}",
+            2: f"={apbgd_name}:{refparoffset+2}",
+            3: f"{norm_preset:e}, 0.01"
+        }
+
+        allpars.extend([m, newpar])
 
         # if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
         #     m.cutoffpl.norm.values = norm_preset
@@ -758,6 +807,8 @@ def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
         #         norm_preset / ref_preset,
         #         model_name,
         #         3 * refspec[fpm] + 3)
+
+    xspec.AllModels.setPars(*allpars)
 
 
 def fcxb_linkab(links, model_name='fcxb'):
@@ -848,6 +899,11 @@ def applymodel_intn(presets, refspec, bgddetimsum, model_num, src_number=None,
               'specified model name. Cannot proceed with updating parameters!')
         return False
 
+    # Parameters for bknpower:
+    # PhoIndx1 BreakE PhoIndx2 norm
+
+    allpars = []
+
     for i in range(spec_count):
         spec_number = i + spec_start  # Spectrum number in Xspec
         spec_arrinx = spec_number - 1  # Index in bgdapimwt array etc.
@@ -855,36 +911,43 @@ def applymodel_intn(presets, refspec, bgddetimsum, model_num, src_number=None,
         fpm = util.fpm_parse(spec.fileinfo('INSTRUME'))
         m = xspec.AllModels(spec_number, model_name)
 
-        m.bknpower.PhoIndx1.values = mod_intn['bknpower'][fpm]['phoindx1']
-        m.bknpower.BreakE.values = mod_intn['bknpower'][fpm]['breake']
-        m.bknpower.PhoIndx2.values = mod_intn['bknpower'][fpm]['phoindx2']
-        m.bknpower.PhoIndx1.frozen = True
-        m.bknpower.BreakE.frozen = True
-        m.bknpower.PhoIndx2.frozen = True
+        _pars = mod_intn['bknpower'][fpm]
 
         norm_preset = np.sum(
-            bgddetimsum[spec_arrinx] * np.float64(mod_intn['bknpower'][fpm]['ifactors'])
+            bgddetimsum[spec_arrinx] * np.float64(_pars['ifactors'])
         )
 
+        newpar = {}
+
+        newpar.update({
+            1: f"{_pars['phoindx1']}, -0.01",
+            2: f"{_pars['breake']}, -0.01",
+            3: f"{_pars['phoindx2']}, -0.01"
+        })
 
         if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
-            m.bknpower.norm.values = norm_preset
+            newpar.update({
+                4: f"{norm_preset:e}, 0.01"
+            })
         else:
             ######################
             # Special consideration if not startig with spectrum 1.
             # Calculate the original value for scaling
             ########################
             ref_preset = np.sum(
-                bgddetimsum[refspec[fpm]] * np.float64(mod_intn['bknpower'][fpm]['ifactors'])
+                bgddetimsum[refspec[fpm]] * np.float64(_pars['ifactors'])
             )
             #######################
 
-            m_ref = xspec.AllModels(refspec[fpm] + 1, model_name)
-            m.bknpower.norm.link = '%e * %s:p%d' % (
-                norm_preset / ref_preset,
-                model_name,
-                4 * refspec[fpm] + 4
-            )
+            ratio = norm_preset / ref_preset
+
+            newpar.update({
+                4: f"={ratio:e} * {model_name}:{4 * refspec[fpm] + 4}"
+            })
+
+        allpars.extend([m, newpar])
+
+    xspec.AllModels.setPars(*allpars)
 
 
 def addmodel_grxe(presets, refspec, model_num, model_name='grxe'):
