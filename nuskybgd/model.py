@@ -531,10 +531,10 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                                bgddetimsum[spec_arrinx] * np.array(
                                   mod_intbgd['apec'][fpm]['ifactors'])
                                 ) / np.sum(bgddetimsum[spec_arrinx])
-            par_dict = {1:f"{mod_intbgd['apec'][fpm]['kt']}, -0.1",
-                          2:f"{mod_intbgd['apec'][fpm]['abundanc']}, -0.1",
-                          3:f"{mod_intbgd['apec'][fpm]['redshift']}, -0.1",
-                          4:f"{apec_norm}"}
+            par_dict = {1:f"{mod_intbgd['apec'][fpm]['kt']}, -0.01",
+                          2:f"{mod_intbgd['apec'][fpm]['abundanc']}, -0.001",
+                          3:f"{mod_intbgd['apec'][fpm]['redshift']}, -0.01",
+                          4:f"{apec_norm:e}"}
             parnum =5
 
 
@@ -546,9 +546,9 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                         mod_intbgd[attr][fpm]['ifactors'])
                 ) / np.sum(bgddetimsum[spec_arrinx])
 
-                this_par = {parnum:f"{mod_intbgd[attr][fpm]['linee']}, -0.1",
-                        parnum+1:f"{mod_intbgd[attr][fpm]['width']}, -0.1",
-                        parnum+2:f"{line_norm}, 0.1"}
+                this_par = {parnum:f"{mod_intbgd[attr][fpm]['linee']}, -0.05",
+                        parnum+1:f"{mod_intbgd[attr][fpm]['width']}, -0.05",
+                        parnum+2:f"{line_norm}, 0.01"}
                 par_dict.update(this_par)
                 parnum += 3
 
@@ -566,8 +566,8 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                 ) / np.sum(bgddetimsum[spec_arrinx])
 
                 par_dict.update({
-                    parnum: f"{mod_intbgd[attr][fpm]['linee']}, -0.1",
-                    parnum + 1: f"{mod_intbgd[attr][fpm]['width']}, -0.1"
+                    parnum: f"{mod_intbgd[attr][fpm]['linee']}, -0.05",
+                    parnum + 1: f"{mod_intbgd[attr][fpm]['width']}, -0.05"
                 })
 
                 if fix_line_ratios:
@@ -576,12 +576,12 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                     line_ratio = norm_preset / m.lorentz_5.norm.values[0]
 
                     par_dict.update({
-                        parnum + 2: f"={model_name}:{lorentz_5_norm_npar} * {line_ratio}"
+                        parnum + 2: f"={line_ratio:e} * {model_name}:{lorentz_5_norm_npar}"
                     })
 
                 else:
                     par_dict.update({
-                        parnum + 2: f"{norm_preset}, 0.1"
+                        parnum + 2: f"{norm_preset:e}, 0.01"
                     })
 
                 parnum += 3
@@ -610,11 +610,13 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
             ) / np.sum(bgddetimsum[refspec[fpm]])
             ##################
 
+            line_ratio = norm_preset / ref_preset
+
 
             par_dict = {1:f"={model_name}:{m_ref_npar_offset+1}",
                         2:f"={model_name}:{m_ref_npar_offset+2}",
                         3:f"={model_name}:{m_ref_npar_offset+3}",
-                        4:f"={norm_preset/ref_preset}*{model_name}:{m_ref_npar_offset+4}"}
+                        4:f"={line_ratio:e} * {model_name}:{m_ref_npar_offset+4}"}
 
 
             parnum=5
@@ -641,9 +643,11 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                         mod_intbgd[attr][fpm]['ifactors'])
                 ) / np.sum(bgddetimsum[i])
 
+                line_ratio = norm_preset / ref_preset
+
                 this_par = {parnum:f"={model_name}:{parnum+m_ref_npar_offset}",
                             parnum+1:f"={model_name}:{parnum+1+m_ref_npar_offset}",
-                            parnum+2:f"={model_name}:{parnum+2+m_ref_npar_offset} * {norm_preset/ref_preset}"}
+                            parnum+2:f"={line_ratio:e} * {model_name}:{parnum+2+m_ref_npar_offset}"}
                 par_dict.update(this_par)
                 parnum += 3
 
