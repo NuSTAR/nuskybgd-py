@@ -4,7 +4,7 @@
 
     Download HEASOFT: https://heasarc.gsfc.nasa.gov/lheasoft/download.html
 
-- You need a Python 3 environment; compile PyXspec against it. See SETUP.
+- You need a Python 3 (3.6 or newer) environment; compile PyXspec against it. See SETUP.
 
 
 # Quick start guide

@@ -46,6 +46,12 @@ A snippet for conda's initialization will be inserted into `~/.zshrc`.
 
 Start a new shell session for the modified shell rc to take effect.
 
+> **Note:**
+>
+> The setup flow below was written for Python 3.5. **The minimum requirement
+> is now Python 3.6.** Where appropriate, please choose a compatible version
+> number for the example commands shown below.
+
 Create an environment named `pyxspec` with Python 3.5
 
 ```
