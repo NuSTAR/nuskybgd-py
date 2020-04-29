@@ -417,8 +417,9 @@ def applymodel_apbgd(presets, refspec, bgdapimwt, model_num, src_number=None,
                 3 * refspec[fpm] + 3)
 
 
-def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
-                    model_name='intbgd', fix_line_ratios=False):
+def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
+                      src_number=None, model_name='intbgd',
+                      fix_line_ratios=False):
     """
     Xspec model component 3: intbgd (instrument background)
 
@@ -477,10 +478,13 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
 
         src_number - (Optional) Position of first spectrum to process, if not
             starting at 1. This is useful for rescaling background model
-            parameters for a newly added spectrum.
+            parameters for a newly added spectrum. (Default: None)
 
-        model_name - (Optional) Model component name in Xspec, default 'intbgd',
-            cannot be the same as another model.
+        model_name - (Optional) Model component name in Xspec. Must not be the
+            same as another model. (Default: 'intbgd')
+
+        fix_line_ratios - (Optional) Scale Gaussian line norms after the 19
+            keV line to the 19 keV norm. (Default: False)
     """
     mod_intbgd = presets['models'][1]['components']
 
@@ -491,8 +495,9 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
         spec_start = 1
 
     # Validate the requested startspec number
-    if not (xspec.AllData.nSpectra >= spec_start > 0):  # Must be within 1...nspec
-        raise Exception('Cannot apply model for spectrum: spectrum number out of range.')
+    if not (xspec.AllData.nSpectra >= spec_start > 0):  # Range is 1...nspec
+        raise Exception(
+            'Cannot apply model for spectrum: spectrum number out of range.')
 
     # Number of spectra to process
     spec_count = xspec.AllData.nSpectra - (spec_start - 1)
@@ -505,13 +510,13 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
     # Are we adding the model, or updating it?
     if model_num not in xspec.AllModels.sources:
         xspec.Model('apec' + '+lorentz' * (len(mod_intbgd) - 1),
-                model_name, model_num)
+                    model_name, model_num)
     elif model_name != xspec.AllModels.sources[model_num]:
         # Model already exists when source spectrum is added. Proceed to adjust
         # the params.
         print('Error: the requested model number (%d, %s) exists and does not match '
-              'specified model name (%s). Cannot proceed with updating parameters!' %(
-              model_num, xspec.AllModels.sources[model_num], model_name))
+              'specified model name (%s). Cannot proceed with updating parameters!' % (
+                  model_num, xspec.AllModels.sources[model_num], model_name))
         return False
 
     # There are in total (len(mod_intbgd) * 3 + 1) parameters per spectrum. 4
@@ -527,32 +532,32 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
         if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
             m_ref_npar_offset = m.nParameters * refspec[fpm]
 
-            apec_norm = np.sum(
-                               bgddetimsum[spec_arrinx] * np.array(
-                                  mod_intbgd['apec'][fpm]['ifactors'])
-                                ) / np.sum(bgddetimsum[spec_arrinx])
-            par_dict = {1:f"{mod_intbgd['apec'][fpm]['kt']}, -0.01",
-                          2:f"{mod_intbgd['apec'][fpm]['abundanc']}, -0.001",
-                          3:f"{mod_intbgd['apec'][fpm]['redshift']}, -0.01",
-                          4:f"{apec_norm:e}"}
-            parnum =5
+            _pars = mod_intbgd['apec'][fpm]
 
+            apec_norm = np.sum(
+                bgddetimsum[spec_arrinx] * np.array(_pars['ifactors'])
+            ) / np.sum(bgddetimsum[spec_arrinx])
+            par_dict = {1: f"{_pars['kt']}, -0.01",
+                        2: f"{_pars['abundanc']}, -0.001",
+                        3: f"{_pars['redshift']}, -0.01",
+                        4: f"{apec_norm:e}"}
+            parnum = 5
 
             # 3 solar lines and 19 keV line -- load them from preset
             # Leave these free, zero them out if you don't want them.
             for attr in ['lorentz', 'lorentz_3', 'lorentz_4', 'lorentz_5']:
+
+                _pars = mod_intbgd[attr][fpm]
+
                 line_norm = np.sum(
-                    bgddetimsum[spec_arrinx] * np.array(
-                        mod_intbgd[attr][fpm]['ifactors'])
+                    bgddetimsum[spec_arrinx] * np.array(_pars['ifactors'])
                 ) / np.sum(bgddetimsum[spec_arrinx])
 
-                this_par = {parnum:f"{mod_intbgd[attr][fpm]['linee']}, -0.05",
-                        parnum+1:f"{mod_intbgd[attr][fpm]['width']}, -0.05",
-                        parnum+2:f"{line_norm}, 0.01"}
+                this_par = {parnum: f"{_pars['linee']}, -0.05",
+                            parnum + 1: f"{_pars['width']}, -0.05",
+                            parnum + 2: f"{line_norm}, 0.01"}
                 par_dict.update(this_par)
                 parnum += 3
-
-                continue
 
             # All the other lines -- lorentz_6 through lorentz_(components) --
             # if fix_line_ratios=True, scale their initial norm to 19 keV line
@@ -560,14 +565,16 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
             # before lorentz_5.
             for attr_n in range(5, len(mod_intbgd)):
                 attr = 'lorentz_%d' % (attr_n + 1)
+
+                _pars = mod_intbgd[attr][fpm]
+
                 norm_preset = np.sum(
-                    bgddetimsum[spec_arrinx] * np.array(
-                        mod_intbgd[attr][fpm]['ifactors'])
+                    bgddetimsum[spec_arrinx] * np.array(_pars['ifactors'])
                 ) / np.sum(bgddetimsum[spec_arrinx])
 
                 par_dict.update({
-                    parnum: f"{mod_intbgd[attr][fpm]['linee']}, -0.05",
-                    parnum + 1: f"{mod_intbgd[attr][fpm]['width']}, -0.05"
+                    parnum: f"{_pars['linee']}, -0.05",
+                    parnum + 1: f"{_pars['width']}, -0.05"
                 })
 
                 if fix_line_ratios:
@@ -588,16 +595,15 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
 
         else:
             # Link to ref spectrum
-            m_ref = xspec.AllModels(refspec[fpm] + 1, model_name)
+            # m_ref = xspec.AllModels(refspec[fpm] + 1, model_name)
             m_ref_npar_offset = m.nParameters * refspec[fpm]
 
             # Link apec to refspec
 
-
+            _pars = mod_intbgd['apec'][fpm]
 
             norm_preset = np.sum(
-                bgddetimsum[spec_arrinx] * np.array(
-                    mod_intbgd['apec'][fpm]['ifactors'])
+                bgddetimsum[spec_arrinx] * np.array(_pars['ifactors'])
             ) / np.sum(bgddetimsum[spec_arrinx])
 
             ##################
@@ -605,21 +611,18 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
             # The reference preset may have changed after fitting, so we must
             # calculate its original value for scaling.
             ref_preset = np.sum(
-                bgddetimsum[refspec[fpm]] * np.array(
-                    mod_intbgd['apec'][fpm]['ifactors'])
+                bgddetimsum[refspec[fpm]] * np.array(_pars['ifactors'])
             ) / np.sum(bgddetimsum[refspec[fpm]])
             ##################
 
             line_ratio = norm_preset / ref_preset
 
+            par_dict = {1: f"={model_name}:{m_ref_npar_offset+1}",
+                        2: f"={model_name}:{m_ref_npar_offset+2}",
+                        3: f"={model_name}:{m_ref_npar_offset+3}",
+                        4: f"={line_ratio:e} * {model_name}:{m_ref_npar_offset+4}"}
 
-            par_dict = {1:f"={model_name}:{m_ref_npar_offset+1}",
-                        2:f"={model_name}:{m_ref_npar_offset+2}",
-                        3:f"={model_name}:{m_ref_npar_offset+3}",
-                        4:f"={line_ratio:e} * {model_name}:{m_ref_npar_offset+4}"}
-
-
-            parnum=5
+            parnum = 5
             # All lines --- load values from preset and link to refspec
             for attr_n in range(1, len(mod_intbgd)):
                 if attr_n == 1:
@@ -627,6 +630,7 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                 else:
                     attr = 'lorentz_%d' % (attr_n + 1)
 
+                _pars = mod_intbgd[attr][fpm]
 
                 ######################
                 # Special consideration if not startig with spectrum 1.
@@ -634,20 +638,20 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num, src_number=None,
                 ########################
                 ref_preset = np.sum(
                     bgddetimsum[refspec[fpm]] * np.array(
-                        mod_intbgd[attr][fpm]['ifactors'])
+                        _pars['ifactors'])
                 ) / np.sum(bgddetimsum[refspec[fpm]])
                 ######################
 
                 norm_preset = np.sum(
                     bgddetimsum[i] * np.array(
-                        mod_intbgd[attr][fpm]['ifactors'])
+                        _pars['ifactors'])
                 ) / np.sum(bgddetimsum[i])
 
                 line_ratio = norm_preset / ref_preset
 
-                this_par = {parnum:f"={model_name}:{parnum+m_ref_npar_offset}",
-                            parnum+1:f"={model_name}:{parnum+1+m_ref_npar_offset}",
-                            parnum+2:f"={line_ratio:e} * {model_name}:{parnum+2+m_ref_npar_offset}"}
+                this_par = {parnum: f"={model_name}:{parnum+m_ref_npar_offset}",
+                            parnum + 1: f"={model_name}:{parnum+1+m_ref_npar_offset}",
+                            parnum + 2: f"={line_ratio:e} * {model_name}:{parnum+2+m_ref_npar_offset}"}
                 par_dict.update(this_par)
                 parnum += 3
 
