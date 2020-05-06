@@ -782,9 +782,16 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
                 })
 
                 if fix_line_ratios:
-                    lorentz_5_norm_npar = spec_arrinx * m.nParameters + 16
+                    if attr_n == 5:
+                        # If you're lorentz_6 then you can pick up the line norm
+                        # from above. 
+                        base_norm = line_norm
+                        lorentz_5_norm_npar = spec_arrinx * m.nParameters + 16
 
-                    line_ratio = norm_preset / m.lorentz_5.norm.values[0]
+#                   This doesn't work because we haven't told the model what it's value
+#                   is yet.
+#                    line_ratio = norm_preset / m.lorentz_5.norm.values[0]
+                    line_ratio = norm_preset / base_norm
 
                     newpar.update({
                         parnum + 2: f"={line_ratio:e} * {model_name}:{lorentz_5_norm_npar}"
