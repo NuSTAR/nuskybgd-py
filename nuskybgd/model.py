@@ -177,6 +177,9 @@ def check_bgdinfofile(bgdinfofile):
     queue.append(bgdinfo['bgdapfiles']['A'])
     queue.append(bgdinfo['bgdapfiles']['B'])
 
+    if 'fix_line_ratios' not in bgdinfo:
+        bgdinfo['fix_line_ratios'] = False
+
     for _ in queue:
         if not os.path.exists(_):
             problem = True
