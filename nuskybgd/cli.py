@@ -445,7 +445,7 @@ def spec(args=[]):
     # These models need to have the same number as in fit() or it won't work!
     numodel.applymodel_apbgd(presets, refspec, bgdapimwt, 2, src_number=src_number)
     numodel.applymodel_intbgd(presets, refspec, bgddetimsum,3, 
-        fix_line_ratios=bgdinfo['fix_line_ratios'])
+        fix_line_ratios=bgdinfo['fix_line_ratios'], src_number=src_number)
     numodel.applymodel_fcxb(refspec, bgddetimsum, 4, src_number=src_number)
     numodel.applymodel_intn(presets, refspec, bgddetimsum, 5, src_number=src_number)
     ##########
