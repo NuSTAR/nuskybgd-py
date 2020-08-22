@@ -10,6 +10,87 @@ from . import util
 from . import conf
 
 
+class ModelSource():
+    def __init__(self, xspec_model):
+        self.xsmod = xspec_model
+
+    def __str__(self):
+        mod = {}
+
+        mod['name'] = self.xsmod.name
+        mod['expression'] = self.xsmod.expression
+        mod['componentNames'] = self.xsmod.componentNames
+        mod['nParameters'] = self.xsmod.nParameters
+        mod['startParIndex'] = self.xsmod.startParIndex
+        mod['components'] = {}
+
+        for component in self.xsmod.componentNames:
+            mod['components'][component] = {}
+            comp = self.xsmod.__getattribute__(component)
+
+            mod['components'][component]['parameterNames'] = comp.parameterNames
+
+            for param in comp.parameterNames:
+                mod['components'][component][param] = (
+                    comp.__getattribute__(param).values[0])
+
+        return json.dumps(mod, indent=4)
+
+    def zero_norm_pars(self):
+        """
+        Return a dictionary for xspec.AllModels.setPars() to update all
+        normalization parameters (those that match the name "norm") in this
+        model to zero.
+
+        Note: In Xspec, parameters for different data groups for a single model
+        source are numbered sequentially, such that if there were 12 parameters
+        in the model, then 1-12 apply to data group 1, 13-24 apply to data group
+        2, and so on. The PyXspec model object is for one data group; the total
+        number of parameters is given by model.nParameters and the starting
+        parameter number of the data group is given by model.startParIndex. When
+        performing parameter updates using model.setPars(), the numbering always
+        starts at 1 (do not account for preceding data groups). Similarly when
+        using xspec.AllModels.setPars() parameters for each data group starts at
+        1.
+
+        In practice, this means that the same dictionary that lists the
+        parameter numbers to set to zero can be used for all data groups of a
+        model source, since they have the same set of parameters.
+
+        Example:
+
+        ```
+        # Get information for the intbgd source using data group 2
+        test = ModelSource(xspec.AllModels(2, 'intbgd'))
+        update_pars = test.zero_norm_pars()
+        # Use this to zero normalization for all data groups
+
+        allpars = []
+        for i_grp in range(1, xspec.AllData.nGroups + 1):
+            m = xspec.AllModels(i_grp, 'intbgd')
+            allpars.extend([m, update_pars])
+        xspec.AllModels.setPars(*allpars)
+        ```
+        """
+        pars = {}
+
+        pnum = 1
+
+        for comp_name in self.xsmod.componentNames:
+            param_names = self.xsmod.__getattribute__(comp_name).parameterNames
+            try:
+                norm_inx = param_names.index('norm')
+                pars.update({
+                    pnum + norm_inx: '0'
+                })
+            except ValueError:
+                print('Param "norm" missing for component %s' % comp_name)
+
+            pnum += len(param_names)
+
+        return pars
+
+
 def check_bgdinfofile(bgdinfofile):
     """
     Check that the background info file has the required items.
@@ -996,7 +1077,7 @@ def read_xspec_model_norms(spec_nums=None):
 
         for model_source in xspec.AllModels.sources.items():
             print('-' * 80)
-            print('Current spectrum number, model source: ', spec_num, model_source)
+            print('Spectrum number, model source: ', spec_num, model_source)
 
             model_norms[spec_num][model_source[1]] = {}
             current_model = xspec.AllModels(spec_num, model_source[1])
@@ -1026,20 +1107,40 @@ def zero_xspec_model_norms(model_norms):
     """
     print('Setting XSPEC model normalizations to zero...')
     print('=' * 80)
-    for spec_num, sources in model_norms.items():
-        for source_name, source_components in sources.items():
-            print('-' * 80)
-            print('Current spectrum number, model source: ', spec_num, source_name)
-            current_model = xspec.AllModels(spec_num, source_name)
-            for component_name, _ in source_components.items():
-                current_model.__getattribute__(component_name).norm.values = 0.0
-                print('Set to zero: ', component_name)
-            print('-' * 80)
-        print('End of spectrum ', spec_num)
-        print('=' * 80)
+
+    allpars = []
+
+    for _, source_name in xspec.AllModels.sources.items():
+        print('Source: %s' % source_name)
+        # Use first data group to get the list of parameter numbers to zero
+        source_pars = ModelSource(xspec.AllModels(1, source_name)).zero_norm_pars()
+
+        # Apply to every data group by adding them to allpars.
+        # Repeated for all sources.
+        for grp_num in range(1, xspec.AllData.nGroups + 1):
+            print('Data group %d' % grp_num)
+            m = xspec.AllModels(grp_num, source_name)
+            allpars.extend([m, source_pars])
+        print('-' * 80)
+
+    xspec.AllModels.setPars(*allpars)
+
+    # for spec_num, sources in model_norms.items():
+    #     for source_name, source_components in sources.items():
+    #         print('-' * 80)
+    #         print('Current spectrum number, model source: ', spec_num, source_name)
+    #         current_model = xspec.AllModels(spec_num, source_name)
+    #         for component_name, _ in source_components.items():
+    #             current_model.__getattribute__(component_name).norm.values = 0.0
+    #             print('Set to zero: ', component_name)
+    #         print('-' * 80)
+    #     print('End of spectrum ', spec_num)
+    #     print('=' * 80)
 
 
-def bgimg_apbgd(bgdinfo, model_norms, bgdapweights, refspec, model_name='apbgd', ignore='**-3. 20.-**'):
+def bgimg_apbgd(bgdinfo, model_norms, bgdapweights, refspec,
+                model_name='apbgd', ignore='**-3. 20.-**',
+                outprefix=''):
     """
     Create two images, one for each module, based on the aperture images.
 
@@ -1073,6 +1174,8 @@ def bgimg_apbgd(bgdinfo, model_norms, bgdapweights, refspec, model_name='apbgd',
     ignore - (Optional) The XSPEC 'ignore' command to use before asking for
         the model predicted count rate. Default: '**-3. 20.-**'.
 
+    outprefix - (Optional) Prefix for the output file name.
+
     Output:
 
     True, upon completion.
@@ -1100,7 +1203,8 @@ def bgimg_apbgd(bgdinfo, model_norms, bgdapweights, refspec, model_name='apbgd',
         output[0].data *= (total_counts / bgdapweights['sum'][refspec[fpm]])
         print(total_counts)
 
-        output.writeto('bgd_%s_%s.fits' % (model_name, fpm), overwrite=True)
+        output.writeto('%sbgd_%s_%s.fits' % (outprefix, model_name, fpm),
+            overwrite=True)
 
         # Unset the model norms
         xspec.AllModels(1 + refspec[fpm], 'apbgd').cutoffpl.norm.values = 0.0
@@ -1109,7 +1213,8 @@ def bgimg_apbgd(bgdinfo, model_norms, bgdapweights, refspec, model_name='apbgd',
 
 
 def bgimg_intbgd(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim,
-                 model_name='intbgd', ignore='**-3. 20.-**'):
+                 model_name='intbgd', ignore='**-3. 20.-**',
+                 outprefix=''):
     """
     The model assigns constant background values for each detector (4
     detectors x 2 modules).
@@ -1162,6 +1267,8 @@ def bgimg_intbgd(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim
     ignore - (Optional) The XSPEC 'ignore' command to use before asking for
         the model predicted count rate. Default: '**-3. 20.-**'.
 
+    outprefix - (Optional) Prefix for the output file name.
+
     Output:
 
     True, upon completion.
@@ -1190,7 +1297,7 @@ def bgimg_intbgd(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim
 
         # Check and warn about model components mismatch with presets
         if not (current_norms.keys() == mod_intbgd.keys()):
-            print('Warning: the loaded XSPEC model for intbgd does not match components in preset!')
+            print('Warning: XSPEC intbgd components do not match preset!')
             print('Preset:')
             print(', '.join(mod_intbgd.keys()))
             print('Loaded model:')
@@ -1222,13 +1329,15 @@ def bgimg_intbgd(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim
         for i_det in range(4):
             output[0].data += bgddetim[fpm][i_det] * intbgd_values[i_det]
 
-        output.writeto('bgd_%s_%s.fits' % (model_name, fpm), overwrite=True)
+        output.writeto('%sbgd_%s_%s.fits' % (outprefix, model_name, fpm),
+            overwrite=True)
 
     return True
 
 
 def bgimg_fcxb(bgdinfo, model_norms, bgddetweights, bgddetim, regmask,
-               model_name='fcxb', ignore='**-3. 20.-**'):
+               model_name='fcxb', ignore='**-3. 20.-**',
+               outprefix=''):
     """
     All of the regions are allowed to have their own flux values.
 
@@ -1265,6 +1374,8 @@ def bgimg_fcxb(bgdinfo, model_norms, bgddetweights, bgddetim, regmask,
 
     ignore - (Optional) The XSPEC 'ignore' command to use before asking for
         the model predicted count rate. Default: '**-3. 20.-**'.
+
+    outprefix - (Optional) Prefix for the output file name.
 
     Output:
 
@@ -1323,20 +1434,23 @@ def bgimg_fcxb(bgdinfo, model_norms, bgddetweights, bgddetim, regmask,
         output.writeto('bgd_fcxb_%d.fits' % (1 + i_spec), overwrite=True)
 
 
-    # Create detector images filled by mean flux across all spectral regions (overlapping areas are treated as independent)
+    # Create detector images filled by mean flux across all spectral regions
+    # (overlapping areas are treated as independent)
     overall_flux = overall_counts / overall_area
     for fpm in ('A', 'B'):
         output = pf.open(bgdinfo['refimgf'])
         output[0].data *= 0.0
         for i_det in range(4):
             output[0].data += bgddetim[fpm][i_det] * overall_flux
-        output.writeto('bgd_%s_%s.fits' % (model_name, fpm), overwrite=True)
+        output.writeto('%sbgd_%s_%s.fits' % (outprefix, model_name, fpm),
+            overwrite=True)
 
     return True
 
 
 def bgimg_intn(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim,
-               model_name='intn', ignore='**-3. 20.-**'):
+               model_name='intn', ignore='**-3. 20.-**',
+               outprefix=''):
     """
     The model uses a single component, a broken power law.
 
@@ -1366,6 +1480,8 @@ def bgimg_intn(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim,
 
     ignore - (Optional) The XSPEC 'ignore' command to use before asking for
         the model predicted count rate. Default: '**-3. 20.-**'.
+
+    outprefix - (Optional) Prefix for the output file name.
 
     Output:
 
@@ -1427,7 +1543,8 @@ def bgimg_intn(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim,
         for i_det in range(4):
             output[0].data += bgddetim[fpm][i_det] * intbgd_values[i_det]
 
-        output.writeto('bgd_%s_%s.fits' % (model_name, fpm), overwrite=True)
+        output.writeto('%sbgd_%s_%s.fits' % (outprefix, model_name, fpm),
+            overwrite=True)
 
     return True
 

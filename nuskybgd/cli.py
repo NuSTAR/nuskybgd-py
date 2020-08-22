@@ -460,14 +460,14 @@ def image(args=[]):
     Create images of the nuskybgd model sources.
 
 {b}USAGE{o}
-    nuskybgd image infofile.json bgdparams.xcm emin emax
+    nuskybgd image infofile.json bgdparams.xcm emin emax [prefix=]
 
-{b}DESCRIPTION{o} The result from {b}nuskybgd fit{o} is first retrieved by
-    referring to infofile.json and loading bgdparams.xcm in Xspec. This is
-    used to create image models of each background source defined in
-    auxil/ratios.json are created, by getting model predicted counts in the
-    background regions from Xspec and extrapolating to the whole field of
-    view.
+{b}DESCRIPTION{o}
+    The result from {b}nuskybgd fit{o} is first retrieved by referring to
+    infofile.json and loading bgdparams.xcm in Xspec. This is used to create
+    image models of each background source defined in auxil/ratios.json are
+    created, by getting model predicted counts in the background regions from
+    Xspec and extrapolating to the whole field of view.
 
     {b}infofile.json{o} - The same JSON file that was used with {b}nuskybgd
         fit{o} to obtain the background model.
@@ -477,6 +477,8 @@ def image(args=[]):
     {b}emin{o} - Lower energy bound in keV.
 
     {b}emax{o} - Upper energy bound in keV.
+
+    {b}prefix{o} - (Optional) Prefix for output files.
 
     The following files will be created (or overwritten):
     bgd_apbgd_[A/B].fits, bgd_intbgd_[A/B].fits, bgd_intn_[A/B].fits,
@@ -494,13 +496,18 @@ def image(args=[]):
     if conf.block() is True:
         return 1
 
-    if len(args) != 5:
+    if len(args) not in (5, 6):
         print(docformat(image.__doc__))
         return 0
 
     keywords = {
-        'savefile': None
+        'prefix': ''
     }
+
+    for _ in args[2:]:
+        arg = _.split('=')
+        if arg[0] in keywords:
+            keywords[arg[0]] = arg[1]
 
     auxildir = conf._AUX_DIR
 
@@ -556,10 +563,17 @@ def image(args=[]):
     numodel.zero_xspec_model_norms(model_norms)
 
 
-    numodel.bgimg_apbgd(bgdinfo, model_norms, bgdapweights, refspec, ignore=ignore_string)
-    numodel.bgimg_intbgd(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim, ignore=ignore_string)
-    numodel.bgimg_fcxb(bgdinfo, model_norms, bgddetweights, bgddetim, regmask, model_name='fcxb', ignore=ignore_string)
-    numodel.bgimg_intn(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim, ignore=ignore_string)
+    numodel.bgimg_apbgd(bgdinfo, model_norms, bgdapweights, refspec,
+        ignore=ignore_string, outprefix=keywords['prefix'])
+
+    numodel.bgimg_intbgd(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim,
+        ignore=ignore_string, outprefix=keywords['prefix'])
+
+    numodel.bgimg_fcxb(bgdinfo, model_norms, bgddetweights, bgddetim, regmask,
+        ignore=ignore_string, outprefix=keywords['prefix'])
+
+    numodel.bgimg_intn(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim,
+        ignore=ignore_string, outprefix=keywords['prefix'])
 
     return 0
 
