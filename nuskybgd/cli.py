@@ -31,6 +31,7 @@ def run(args=[]):
                      regions
         {b}spec         {o}Scale the fitted background model for a source
                      region
+        {b}image        {o}Create images of the background sources
         {b}simplify     {o}Simplify the source + background Xspec save file by
                      removing the spectra from the background regions.
         {b}absrmf       {o}Add detector absorption to RMF files
@@ -40,6 +41,7 @@ def run(args=[]):
         'mkinstrmap': mkinstrmap,
         'projbgd': projbgd,
         'fit': fit,
+        'image': image,
         'spec': spec,
         'simplify': simplify,
         'absrmf': absrmf
@@ -447,6 +449,131 @@ def spec(args=[]):
         numodel.save_xcm(prefix='bgd_'+src_regfiles[0].replace('.reg', ''))
     else:
         numodel.save_xcm(prefix=keywords['savefile'].strip())
+
+    return 0
+
+
+def image(args=[]):
+    """
+{b}NAME
+    {b}nuskybgd image{o}
+    Create images of the nuskybgd model sources.
+
+{b}USAGE{o}
+    nuskybgd image infofile.json bgdparams.xcm emin emax [prefix=]
+
+{b}DESCRIPTION{o}
+    The result from {b}nuskybgd fit{o} is first retrieved by referring to
+    infofile.json and loading bgdparams.xcm in Xspec. This is used to create
+    image models of each background source defined in auxil/ratios.json are
+    created, by getting model predicted counts in the background regions from
+    Xspec and extrapolating to the whole field of view.
+
+    {b}infofile.json{o} - The same JSON file that was used with {b}nuskybgd
+        fit{o} to obtain the background model.
+
+    {b}bgdparams.xcm{o} - The Xspec save file from {b}nuskybgd fit{o}.
+
+    {b}emin{o} - Lower energy bound in keV.
+
+    {b}emax{o} - Upper energy bound in keV.
+
+    {b}prefix{o} - (Optional) Prefix for output files.
+
+    The following files will be created (or overwritten):
+    bgd_apbgd_[A/B].fits, bgd_intbgd_[A/B].fits, bgd_intn_[A/B].fits,
+    bgd_fcxb_[A/B].fits, as well as bgd_fcxb_[spectrum_number].fits for
+    each background spectrum.
+    """
+    import os
+    import json
+    import xspec
+    import numpy as np
+    import astropy.io.fits as pf
+    from . import util
+    from . import model as numodel
+
+    if conf.block() is True:
+        return 1
+
+    if len(args) not in (5, 6):
+        print(docformat(image.__doc__))
+        return 0
+
+    keywords = {
+        'prefix': ''
+    }
+
+    for _ in args[2:]:
+        arg = _.split('=')
+        if arg[0] in keywords:
+            keywords[arg[0]] = arg[1]
+
+    auxildir = conf._AUX_DIR
+
+    # Input params
+    bgdinfo = numodel.check_bgdinfofile(args[1])
+    if bgdinfo is False:
+        print('Error: background info file %s problem.' % args[1])
+        return 1
+
+    # Load the Xspec save file
+    if not os.path.exists(args[2]):
+        print('Error: save file %s does not exist!' % args[2])
+        return 1
+    xspec.AllData.clear()
+    xspec.Xset.restore(args[2])
+
+    # Check order of loaded spectra vs. files listed in bgdinfo. Must have
+    # save order!
+    if not numodel.check_spec_order(bgdinfo):
+        print('Loaded spectra files are inconsistent with bgdinfo, stopping.')
+        return 1
+
+    #####################################################
+    # This part is identical to fit()
+    presets = json.loads(open('%s/ratios.json' % auxildir).read())
+
+    instrlist = numodel.get_keyword_specfiles(bgdinfo['bgfiles'],
+                                              'INSTRUME', ext='SPECTRUM')
+
+    # Compute aperture image and detector mask based weights using each
+    # background region's mask
+    regmask = util.mask_from_region(bgdinfo['regfiles'],
+                                    bgdinfo['refimgf'])
+    bgdapim, bgddetim = numodel.load_bgdimgs(bgdinfo)
+
+    # Number of det pixels in the region mask.
+    bgddetweights = numodel.calc_det_weights(bgddetim, regmask, instrlist)
+    bgddetimsum = bgddetweights['sum']
+
+    # Sum of the aperture image in the region mask.
+    bgdapweights = numodel.calc_ap_weights(bgdapim, regmask, instrlist)
+    bgdapimwt = bgdapweights['sum']
+
+    refspec = numodel.get_refspec(instrlist)
+    #####################################################
+
+    emin = float(args[3])
+    emax = float(args[4])
+
+    ignore_string = '**-%.2f %.2f-**' % (emin, emax)
+
+    model_norms = numodel.read_xspec_model_norms()
+    numodel.zero_xspec_model_norms(model_norms)
+
+
+    numodel.bgimg_apbgd(bgdinfo, model_norms, bgdapweights, refspec,
+        ignore=ignore_string, outprefix=keywords['prefix'])
+
+    numodel.bgimg_intbgd(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim,
+        ignore=ignore_string, outprefix=keywords['prefix'])
+
+    numodel.bgimg_fcxb(bgdinfo, model_norms, bgddetweights, bgddetim, regmask,
+        ignore=ignore_string, outprefix=keywords['prefix'])
+
+    numodel.bgimg_intn(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim,
+        ignore=ignore_string, outprefix=keywords['prefix'])
 
     return 0
 

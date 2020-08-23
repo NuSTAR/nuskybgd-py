@@ -440,6 +440,16 @@ command above is `bgd_only_src1.xcm`, but this can be customized using the
 
 ### 4.2 Generate background images
 
+Images of the model background sources can be created from the Xspec save file
+obtained in the previous step. For example, to generate images of the model
+counts between 3 and 20 keV,
+
+```bash
+nuskybgd image bgdinfo.json mymodel.xcm 3 20
+```
+
+This results in two files for each background source (A and B), as well as
+images of the FCXB in each background spectrum region.
 
 
 ---

@@ -10,6 +10,87 @@ from . import util
 from . import conf
 
 
+class ModelSource():
+    def __init__(self, xspec_model):
+        self.xsmod = xspec_model
+
+    def __str__(self):
+        mod = {}
+
+        mod['name'] = self.xsmod.name
+        mod['expression'] = self.xsmod.expression
+        mod['componentNames'] = self.xsmod.componentNames
+        mod['nParameters'] = self.xsmod.nParameters
+        mod['startParIndex'] = self.xsmod.startParIndex
+        mod['components'] = {}
+
+        for component in self.xsmod.componentNames:
+            mod['components'][component] = {}
+            comp = self.xsmod.__getattribute__(component)
+
+            mod['components'][component]['parameterNames'] = comp.parameterNames
+
+            for param in comp.parameterNames:
+                mod['components'][component][param] = (
+                    comp.__getattribute__(param).values[0])
+
+        return json.dumps(mod, indent=4)
+
+    def zero_norm_pars(self):
+        """
+        Return a dictionary for xspec.AllModels.setPars() to update all
+        normalization parameters (those that match the name "norm") in this
+        model to zero.
+
+        Note: In Xspec, parameters for different data groups for a single model
+        source are numbered sequentially, such that if there were 12 parameters
+        in the model, then 1-12 apply to data group 1, 13-24 apply to data group
+        2, and so on. The PyXspec model object is for one data group; the total
+        number of parameters is given by model.nParameters and the starting
+        parameter number of the data group is given by model.startParIndex. When
+        performing parameter updates using model.setPars(), the numbering always
+        starts at 1 (do not account for preceding data groups). Similarly when
+        using xspec.AllModels.setPars() parameters for each data group starts at
+        1.
+
+        In practice, this means that the same dictionary that lists the
+        parameter numbers to set to zero can be used for all data groups of a
+        model source, since they have the same set of parameters.
+
+        Example:
+
+        ```
+        # Get information for the intbgd source using data group 2
+        test = ModelSource(xspec.AllModels(2, 'intbgd'))
+        update_pars = test.zero_norm_pars()
+        # Use this to zero normalization for all data groups
+
+        allpars = []
+        for i_grp in range(1, xspec.AllData.nGroups + 1):
+            m = xspec.AllModels(i_grp, 'intbgd')
+            allpars.extend([m, update_pars])
+        xspec.AllModels.setPars(*allpars)
+        ```
+        """
+        pars = {}
+
+        pnum = 1
+
+        for comp_name in self.xsmod.componentNames:
+            param_names = self.xsmod.__getattribute__(comp_name).parameterNames
+            try:
+                norm_inx = param_names.index('norm')
+                pars.update({
+                    pnum + norm_inx: '0'
+                })
+            except ValueError:
+                print('Param "norm" missing for component %s' % comp_name)
+
+            pnum += len(param_names)
+
+        return pars
+
+
 def check_bgdinfofile(bgdinfofile):
     """
     Check that the background info file has the required items.
@@ -960,6 +1041,513 @@ def addmodel_grxe(presets, refspec, model_num, model_name='grxe'):
         s = xspec.AllData(i + 1)
         s.multiresponse[model_num - 1] = s.response.rmf
         s.multiresponse[model_num - 1].arf = '%s/be.arf' % conf._AUX_DIR
+
+
+def read_xspec_model_norms(spec_nums=None):
+    """
+    Make a record of the normalizations of the current XSPEC model. Only the
+    values are saved, not parameter link information. (Note that if
+    normalization value is set directly, the parameter link is overwritten.)
+
+    Input:
+
+    spec_nums -- (Optional) An array of spectrum numbers (starts at 1). If not
+        specified, all spectra are included.
+
+    Output:
+
+    A dictionary with the format
+    {spec_num: {
+        'source_name':{
+            'component1': norm1,
+            'component2': norm2,
+            ...},...},...}
+    """
+    model_norms = {}
+
+    print('Recording current XSPEC model normalizations...')
+    print('=' * 80)
+
+    if spec_nums is None:
+        # Include all spectra
+        spec_nums = range(1, 1 + xspec.AllData.nSpectra)
+
+    for spec_num in spec_nums:
+
+        model_norms[spec_num] = {}
+
+        for model_source in xspec.AllModels.sources.items():
+            print('-' * 80)
+            print('Spectrum number, model source: ', spec_num, model_source)
+
+            model_norms[spec_num][model_source[1]] = {}
+            current_model = xspec.AllModels(spec_num, model_source[1])
+            source_components = current_model.componentNames
+
+            print('Source components: ', source_components)
+            print('Listing component_name, norm: ')
+
+            for component_name in source_components:
+                current_norm = current_model.__getattribute__(component_name).norm.values[0]
+                model_norms[spec_num][model_source[1]][component_name] = current_norm
+                print(component_name, current_norm)
+
+            print('-' * 80)
+        print('End of spectrum number', spec_num)
+        print('=' * 80)
+    return model_norms
+
+
+def zero_xspec_model_norms(model_norms):
+    """
+    Iterate through sources and model components in model_norms (obtained by
+    read_xspec_model_norms) and set all of the normalizations to zero.
+
+    Note: setting the values to zero breaks any link it has to another
+    parameter. The model thus modified should not be used for fitting.
+    """
+    print('Setting XSPEC model normalizations to zero...')
+    print('=' * 80)
+
+    allpars = []
+
+    for _, source_name in xspec.AllModels.sources.items():
+        print('Source: %s' % source_name)
+        # Use first data group to get the list of parameter numbers to zero
+        source_pars = ModelSource(xspec.AllModels(1, source_name)).zero_norm_pars()
+
+        # Apply to every data group by adding them to allpars.
+        # Repeated for all sources.
+        for grp_num in range(1, xspec.AllData.nGroups + 1):
+            print('Data group %d' % grp_num)
+            m = xspec.AllModels(grp_num, source_name)
+            allpars.extend([m, source_pars])
+        print('-' * 80)
+
+    xspec.AllModels.setPars(*allpars)
+
+    # for spec_num, sources in model_norms.items():
+    #     for source_name, source_components in sources.items():
+    #         print('-' * 80)
+    #         print('Current spectrum number, model source: ', spec_num, source_name)
+    #         current_model = xspec.AllModels(spec_num, source_name)
+    #         for component_name, _ in source_components.items():
+    #             current_model.__getattribute__(component_name).norm.values = 0.0
+    #             print('Set to zero: ', component_name)
+    #         print('-' * 80)
+    #     print('End of spectrum ', spec_num)
+    #     print('=' * 80)
+
+
+def bgimg_apbgd(bgdinfo, model_norms, bgdapweights, refspec,
+                model_name='apbgd', ignore='**-3. 20.-**',
+                outprefix=''):
+    """
+    Create two images, one for each module, based on the aperture images.
+
+    The spectral models were constructed by summing the aperture images in the
+    background regions, and using that as the weight to scale different
+    background regions to the reference spectra (the first spectrum for each
+    of A and B).
+
+    The image model of the background is created through the following steps:
+
+    - 1. For each FPM reference region, sum the aperture images in the
+      background regions;
+    - 2. Ask XSPEC for the model predicted counts of the source `apbgd` (in
+      user-specified energy band);
+    - 3. Multiply the aperture image by `model_count_rate / bgdap_region_sum`.
+
+    Inputs:
+
+    bgdinfo - Object returned by model.check_bgdinfofile().
+
+    model_norms - Object returned by read_xspec_model_norms().
+
+    bgdapweights - Object returned by model.calc_ap_weights() containing
+        aperture image sums on each detector, for each spectrum.
+
+    refspec - A dictionary indicating the reference spectra index,
+        e.g. {'A': 0, 'B': 1}.
+
+    model_name - (Optional) Source name used in XSPEC. Default: 'apbgd'.
+
+    ignore - (Optional) The XSPEC 'ignore' command to use before asking for
+        the model predicted count rate. Default: '**-3. 20.-**'.
+
+    outprefix - (Optional) Prefix for the output file name.
+
+    Output:
+
+    True, upon completion.
+    """
+    import astropy.io.fits as pf
+
+    # Set the energy interval
+    xspec.AllData.notice('**')
+    xspec.AllData.ignore(ignore)
+
+    for fpm in ('A', 'B'):
+        output = pf.open(bgdinfo['bgdapfiles'][fpm])
+
+        spec_num = 1 + refspec[fpm]
+        current_model = xspec.AllModels(spec_num, model_name)
+        current_spec = xspec.AllData(spec_num)
+        current_norms = model_norms[spec_num][model_name]
+
+        # Set model norms for the reference spectra
+        component_name = 'cutoffpl'
+        current_model.__getattribute__(component_name).norm.values = current_norms[component_name]
+        print('Set ', component_name, current_norms[component_name])
+
+        total_counts = current_spec.rate[3] * current_spec.exposure
+        output[0].data *= (total_counts / bgdapweights['sum'][refspec[fpm]])
+        print(total_counts)
+
+        output.writeto('%sbgd_%s_%s.fits' % (outprefix, model_name, fpm),
+            overwrite=True)
+
+        # Unset the model norms
+        xspec.AllModels(1 + refspec[fpm], 'apbgd').cutoffpl.norm.values = 0.0
+
+    return True
+
+
+def bgimg_intbgd(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim,
+                 model_name='intbgd', ignore='**-3. 20.-**',
+                 outprefix=''):
+    """
+    The model assigns constant background values for each detector (4
+    detectors x 2 modules).
+
+    In the spectral model, there are optional parameter links among the
+    spectral components, but the detector weighting (the 'ifactors' in the
+    auxil file) are fixed. However, the different spectral components have
+    different sets of 'ifactors' weights, so for any given region, the
+    contributions from the detectors are different for each component.
+
+    The image model of the background is created through the following steps:
+
+    - 1. For each module, go through each spectral model component separately
+      (cache the model norms, then isolate the current component and zero the
+      others);
+    - 2. Ask XSPEC for the model count rate of `intbgd` (in user-specified
+      energy band);
+    - 3. Distribute the model count rate based on weights `ifactor *
+      det_area`:
+        - Because the region may not cover all detectors (i.e. some `det_area`
+          is zero), we shall calculate the flux on the detector that has the
+          most counts and then scale it for the other detectors using their
+          `ifactor` values.
+        - `model_count_rate * ifactor_m / sum_i(ifactor_i * det_area_i)`,
+          where `ifactor_m * det_area_m` is the largest weight, will be the
+          pixel value of `det_m`.
+        - Calculate the pixel values of the other detectors using their
+          relative `ifactor` values.
+    - 4. Add the background image of the current component to the result.
+
+    Inputs:
+
+    presets - Preset information from auxil/ratios.json.
+
+    refspec - A dictionary indicating the reference spectra index,
+        e.g. {'A': 0, 'B': 1}.
+
+    bgdinfo - Object returned by model.check_bgdinfofile().
+
+    model_norms - Object returned by read_xspec_model_norms().
+
+    bgddetweights - Object returned by model.calc_det_weights() containing
+        detector image sums on each detector, for each spectrum.
+
+    bgddetim - Object containing seperate detector images returned by
+        model.load_bgdimgs().
+
+    model_name - (Optional) Source name used in XSPEC. Default: 'intbgd'.
+
+    ignore - (Optional) The XSPEC 'ignore' command to use before asking for
+        the model predicted count rate. Default: '**-3. 20.-**'.
+
+    outprefix - (Optional) Prefix for the output file name.
+
+    Output:
+
+    True, upon completion.
+    """
+    import astropy.io.fits as pf
+
+    mod_intbgd = presets['models'][1]['components']
+
+    # Set the energy interval
+    xspec.AllData.notice('**')
+    xspec.AllData.ignore(ignore)
+
+    for fpm in ('A', 'B'):
+
+        intbgd_values = [0.] * 4  # Tally intbgd counts / px on each detector
+
+        # Use the detector with greatest area as reference for calculations
+        det_areas = bgddetweights['sum'][refspec[fpm]]
+        det_fracs = bgddetweights['fraction'][refspec[fpm]]
+        refdet = det_areas.index(max(det_areas))
+
+        spec_num = 1 + refspec[fpm]
+        current_model = xspec.AllModels(spec_num, model_name)
+        current_spec = xspec.AllData(spec_num)
+        current_norms = model_norms[spec_num][model_name]
+
+        # Check and warn about model components mismatch with presets
+        if not (current_norms.keys() == mod_intbgd.keys()):
+            print('Warning: XSPEC intbgd components do not match preset!')
+            print('Preset:')
+            print(', '.join(mod_intbgd.keys()))
+            print('Loaded model:')
+            print(', '.join(current_norms.keys()))
+
+        for component_name in mod_intbgd.keys():
+
+            # Set current component to fitted norm value
+            current_model.__getattribute__(component_name).norm.values = current_norms[component_name]
+            print('Set ', component_name, current_norms[component_name])
+
+            total_counts = current_spec.rate[3] * current_spec.exposure
+
+            # Zero current component norm
+            current_model.__getattribute__(component_name).norm.values = 0.0
+
+            # Determine intbgd counts / px on the reference detector
+            ifactors = np.array(mod_intbgd[component_name][fpm]['ifactors'])
+            refdet_bgd = total_counts * ifactors[refdet] / np.sum(ifactors * det_areas)
+
+            # Use ifactors to scale to all detectors
+            for i_det in range(4):
+                intbgd_values[i_det] += refdet_bgd * ifactors[i_det] / ifactors[refdet]
+
+        # Multiply detector images by their intbgd_values[i] and create composite image
+        output = pf.open(bgdinfo['refimgf'])
+        output[0].data *= 0.0
+
+        for i_det in range(4):
+            output[0].data += bgddetim[fpm][i_det] * intbgd_values[i_det]
+
+        output.writeto('%sbgd_%s_%s.fits' % (outprefix, model_name, fpm),
+            overwrite=True)
+
+    return True
+
+
+def bgimg_fcxb(bgdinfo, model_norms, bgddetweights, bgddetim, regmask,
+               model_name='fcxb', ignore='**-3. 20.-**',
+               outprefix=''):
+    """
+    All of the regions are allowed to have their own flux values.
+
+    The image model of the background is created through the following steps:
+
+    - 1. For each spectrum, ask XSPEC for the model count rate of `fcxb` (in
+      user-specified energy band);
+    - 2. Calculate the flux as `model_count_rate / n_pixel`.
+    - 3. Fill the detector mask pixels in this spectral region with this flux
+      value, output an image for this region;
+    - 4. After all spectral regions have been processed, create an image for
+      each module based on the fluxes in all of the background regions.
+
+    The last step above currently produces an image assuming a constant
+    background over the field of view. Users may make use of the images of
+    individual regions to create their own models of this.
+
+    Inputs:
+
+    bgdinfo - Object returned by model.check_bgdinfofile().
+
+    model_norms - Object returned by read_xspec_model_norms().
+
+    bgddetweights - Object returned by model.calc_det_weights() containing
+        detector image sums on each detector, for each spectrum.
+
+    bgddetim - Object containing seperate detector images returned by
+        model.load_bgdimgs().
+
+    regmask - Image masks for the spectral regions returned by
+        util.mask_from_region().
+
+    model_name - (Optional) Source name used in XSPEC. Default: 'fcxb'.
+
+    ignore - (Optional) The XSPEC 'ignore' command to use before asking for
+        the model predicted count rate. Default: '**-3. 20.-**'.
+
+    outprefix - (Optional) Prefix for the output file name.
+
+    Output:
+
+    True, upon completion.
+    """
+    import astropy.io.fits as pf
+
+    fpmlist = [util.fpm_parse(_) for _ in get_keyword_xspecdata('INSTRUME')]
+
+    # Set the energy interval
+    xspec.AllData.notice('**')
+    xspec.AllData.ignore(ignore)
+
+    # Track simple mean flux
+    overall_counts = 0.
+    overall_area = 0.
+
+    for i_spec in range(xspec.AllData.nSpectra):
+
+        fpm = fpmlist[i_spec]
+
+        # Use the detector with greatest area as reference for calculations
+        det_areas = bgddetweights['sum'][i_spec]
+
+        spec_num = 1 + i_spec
+        current_model = xspec.AllModels(spec_num, model_name)
+        current_spec = xspec.AllData(spec_num)
+        current_norms = model_norms[spec_num][model_name]
+
+
+        # Set current component to fitted norm value
+        component_name = 'cutoffpl'
+        current_model.__getattribute__(component_name).norm.values = current_norms[component_name]
+        print('Set ', component_name, current_norms[component_name])
+
+        total_counts = current_spec.rate[3] * current_spec.exposure
+        overall_counts += total_counts
+        print(total_counts)
+
+        # Zero current component norm
+        current_model.__getattribute__(component_name).norm.values = 0.0
+
+        # Determine fcxb counts / px
+        total_area = np.sum(det_areas)
+        overall_area += total_area
+        fcxb_flux = total_counts / total_area
+
+        output = pf.open(bgdinfo['refimgf'])
+        output[0].data *= 0.0
+
+        for i_det in range(4):
+            output[0].data += bgddetim[fpm][i_det] * fcxb_flux
+
+        output[0].data *= regmask[i_spec]
+
+        output.writeto('bgd_fcxb_%d.fits' % (1 + i_spec), overwrite=True)
+
+
+    # Create detector images filled by mean flux across all spectral regions
+    # (overlapping areas are treated as independent)
+    overall_flux = overall_counts / overall_area
+    for fpm in ('A', 'B'):
+        output = pf.open(bgdinfo['refimgf'])
+        output[0].data *= 0.0
+        for i_det in range(4):
+            output[0].data += bgddetim[fpm][i_det] * overall_flux
+        output.writeto('%sbgd_%s_%s.fits' % (outprefix, model_name, fpm),
+            overwrite=True)
+
+    return True
+
+
+def bgimg_intn(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim,
+               model_name='intn', ignore='**-3. 20.-**',
+               outprefix=''):
+    """
+    The model uses a single component, a broken power law.
+
+    There are only two free normalizations, one for each module. Relative
+    weights of detectors are fixed by preset values of `ifactors`. The model
+    image is created through an identical process to `intbgd` except we need
+    only look at one model component.
+
+    Inputs:
+
+    presets - Preset information from auxil/ratios.json.
+
+    refspec - A dictionary indicating the reference spectra index,
+        e.g. {'A': 0, 'B': 1}.
+
+    bgdinfo - Object returned by model.check_bgdinfofile().
+
+    model_norms - Object returned by read_xspec_model_norms().
+
+    bgddetweights - Object returned by model.calc_det_weights() containing
+        detector image sums on each detector, for each spectrum.
+
+    bgddetim - Object containing seperate detector images returned by
+        model.load_bgdimgs().
+
+    model_name - (Optional) Source name used in XSPEC. Default: 'intn'.
+
+    ignore - (Optional) The XSPEC 'ignore' command to use before asking for
+        the model predicted count rate. Default: '**-3. 20.-**'.
+
+    outprefix - (Optional) Prefix for the output file name.
+
+    Output:
+
+    True, upon completion.
+    """
+    import astropy.io.fits as pf
+
+    mod_intn = presets['models'][3]['components']
+
+    # Set the energy interval
+    xspec.AllData.notice('**')
+    xspec.AllData.ignore(ignore)
+
+    for fpm in ('A', 'B'):
+
+        intbgd_values = [0.] * 4  # Tally intbgd counts / px on each detector
+
+        # Use the detector with greatest area as reference for calculations
+        det_areas = bgddetweights['sum'][refspec[fpm]]
+        det_fracs = bgddetweights['fraction'][refspec[fpm]]
+        refdet = det_areas.index(max(det_areas))
+
+        spec_num = 1 + refspec[fpm]
+        current_model = xspec.AllModels(spec_num, model_name)
+        current_spec = xspec.AllData(spec_num)
+        current_norms = model_norms[spec_num][model_name]
+
+        # Check and warn about model components mismatch with presets
+        if not (current_norms.keys() == mod_intn.keys()):
+            print('Warning: the loaded XSPEC model for intn does not match components in preset!')
+            print('Preset:')
+            print(', '.join(mod_intn.keys()))
+            print('Loaded model:')
+            print(', '.join(current_norms.keys()))
+
+        for component_name in mod_intn.keys():
+
+            # Set current component to fitted norm value
+            current_model.__getattribute__(component_name).norm.values = current_norms[component_name]
+            print('Set ', component_name, current_norms[component_name])
+
+            total_counts = current_spec.rate[3] * current_spec.exposure
+
+            # Zero current component norm
+            current_model.__getattribute__(component_name).norm.values = 0.0
+
+            # Determine intbgd counts / px on the reference detector
+            ifactors = np.array(mod_intn[component_name][fpm]['ifactors'])
+            refdet_bgd = total_counts * ifactors[refdet] / np.sum(ifactors * det_areas)
+
+            # Use ifactors to scale to all detectors
+            for i_det in range(4):
+                intbgd_values[i_det] += refdet_bgd * ifactors[i_det] / ifactors[refdet]
+
+        # Multiply detector images by their intbgd_values[i] and create composite image
+        output = pf.open(bgdinfo['refimgf'])
+        output[0].data *= 0.0
+
+        for i_det in range(4):
+            output[0].data += bgddetim[fpm][i_det] * intbgd_values[i_det]
+
+        output.writeto('%sbgd_%s_%s.fits' % (outprefix, model_name, fpm),
+            overwrite=True)
+
+    return True
 
 
 def remove_ispec(nspec):
