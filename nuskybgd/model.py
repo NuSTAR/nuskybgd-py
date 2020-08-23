@@ -848,8 +848,9 @@ def applymodel_intn(presets, refspec, bgddetimsum, model_num, src_number=None,
     The 3 parameters are read from preset and frozen (PhoIndx1, BreakE,
     PhoIndx2).
 
-    norm is calculated as the detector mask area (bgddetimsum) times the
-    multiplier for that detector, summed over all detectors.
+    Normalization is calculated by multiplying the detector mask area
+    (bgddetimsum) in arcmin^2 (1 px is 2.45 arcsec) and the preset for that
+    detector, summed over all detectors.
 
     Inputs:
 
@@ -915,7 +916,7 @@ def applymodel_intn(presets, refspec, bgddetimsum, model_num, src_number=None,
 
         norm_preset = np.sum(
             bgddetimsum[spec_arrinx] * np.float64(_pars['ifactors'])
-        )
+        ) / 599.75  # 1 arcsec^2 = 599.75 px
 
         newpar = {}
 
@@ -936,7 +937,7 @@ def applymodel_intn(presets, refspec, bgddetimsum, model_num, src_number=None,
             ########################
             ref_preset = np.sum(
                 bgddetimsum[refspec[fpm]] * np.float64(_pars['ifactors'])
-            )
+            ) / 599.75  # 1 arcsec^2 = 599.75 px
             #######################
 
             ratio = norm_preset / ref_preset
