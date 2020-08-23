@@ -14,7 +14,7 @@
 These environment variables must be set up before anything else. Modify the
 paths to point to the correct location on your machine.
 
-```
+```bash
 # bash, zsh
 
 # NUSKYBGD
@@ -40,7 +40,7 @@ above in a file and only run the export statements when you need them. For
 example, you can save the above to a file `~/nuskybgd-init.sh`. Then in your
 shell rc file, add an alias:
 
-```
+```bash
 # bash, zsh
 alias nuskybgdinit="source ~/nuskybgd-init.sh"
 
@@ -66,7 +66,7 @@ Create the `bgd/` folder if this is the first time.
 
 Use mkimgs.py to create a counts image for WCS reference.
 
-```
+```bash
 # (cd into the top level)
 ./mkimgs.py ./ 50002031004 3 20
 ```
@@ -105,7 +105,7 @@ Create some background regions and extract spectra from both A and B modules,
 e.g. I selected three background regions in DS9 and saved them in ds9 fk5
 format, `bgd1.reg`, `bgd2.reg`, and `bgd3.reg`.
 
-```
+```bash
 # New syntax for getspecnoarf.py
 # In event_cl/
 getspecnoarf.py nu90201039002A01_cl.evt reg=bgd/bgd1.reg \
@@ -141,7 +141,7 @@ step.
 
 Extract the spectrum of an extended source in the aperture defined by src.reg.
 
-```
+```bash
 # In event_cl/
 mkdir spec
 
@@ -164,7 +164,7 @@ from the same relative path for XSPEC to find the RMF file. You can fix the
 RESPFILE keyword in the PHA files to remove the directory name, which lets you
 load the spectrum when working in the same directory as it.
 
-```
+```bash
 # In event_cl/ or where the spectral files are
 find . -iname "*.pha" -type f -exec phafix.py {} \;
 ```
@@ -178,12 +178,20 @@ find . -iname "*.pha" -type f -exec phafix.py {} \;
 Create image masks for the detectors. Do this for each module, `nu*A01_cl.evt`
 and `nu*B01_cl.evt`.
 
-```
+Command line:
+```bash
 # In event_cl/
 
 nuskybgd mkinstrmap nu90201039002A01_cl.evt
 
 nuskybgd mkinstrmap nu90201039002B01_cl.evt
+```
+
+Python:
+```python
+from nuskybgd.cli import mkinstrmap
+mkinstrmap(['mkinstrmap', 'nu90201039002A01_cl.evt'])
+mkinstrmap(['mkinstrmap', 'nu90201039002B01_cl.evt'])
 ```
 
 This creates the files `newinstrmapA.fits` and `newinstrmapB.fits`, which are
@@ -194,7 +202,8 @@ image masks for the detectors.
 
 Make images of the 2D histogram of the pointing position, one for each module.
 
-```
+Command line:
+```bash
 # In event_cl/
 
 nuskybgd aspecthist nu90201039002A_det1.fits gtifile=nu90201039002A01_gti.fits \
@@ -202,6 +211,15 @@ nuskybgd aspecthist nu90201039002A_det1.fits gtifile=nu90201039002A01_gti.fits \
 
 nuskybgd aspecthist nu90201039002B_det1.fits gtifile=nu90201039002B01_gti.fits \
     out=aspecthistB.fits
+```
+
+Python:
+```python
+from nuskybgd.cli import aspecthist
+aspecthist(['aspecthist', 'nu90201039002A_det1.fits',
+    'gtifile=nu90201039002A01_gti.fits', 'out=aspecthistA.fits'])
+aspecthist(['aspecthist', 'nu90201039002B_det1.fits',
+    'gtifile=nu90201039002B01_gti.fits', 'out=aspecthistB.fits'])
 ```
 
 This creates the files `aspecthistA.fits` and `aspecthistB.fits` in the
@@ -215,7 +233,8 @@ Create images of the aperture background model and detector mask convolved
 with the aspect. For each module, one image is created for the aperture
 background and four images for the detector masks.
 
-```
+Command line:
+```bash
 # In event_cl/bgd/
 
 nuskybgd projbgd refimg=../imB3to20keV.fits out=bgdapA.fits \
@@ -223,6 +242,17 @@ nuskybgd projbgd refimg=../imB3to20keV.fits out=bgdapA.fits \
 
 nuskybgd projbgd refimg=../imB3to20keV.fits out=bgdapB.fits \
 	mod=B det=1234 chipmap=../newinstrmapB.fits aspect=../aspecthistB.fits
+```
+
+Python:
+```python
+from nuskybgd.cli import projbgd
+projbgd(['projbgd', 'refimg=../imB3to20keV.fits', 'out=bgdapA.fits',
+    'mod=A', 'det=1234', 'chipmap=../newinstrmapA.fits',
+    'aspect=../aspecthistA.fits'])
+projbgd(['projbgd', 'refimg=../imB3to20keV.fits', 'out=bgdapB.fits',
+    'mod=B', 'det=1234', 'chipmap=../newinstrmapB.fits',
+    'aspect=../aspecthistB.fits'])
 ```
 
 This creates the files `bgdapA.fits` and `bgdapB.fits`, which are the aperture
@@ -303,9 +333,17 @@ Then, run `nuskybgd fit`, directing stdout to a log file. Check the log to see
 if the task encountered any problems. Most of the logged output comes from
 Xspec.
 
-```
+Command line:
+```bash
 # In event_cl/bgd/
-nuskybgd fit bgdinfo.json savefile=IC342bgd >& fitab.log
+nuskybgd fit bgdinfo.json savefile=IC342bgd >& fit.log
+```
+
+Python:
+(Warning for interactive use: Xspec will flood the terminal with messages)
+```python
+from nuskybgd.cli import fit
+fit(['fit', 'bgdinfo.json', 'savefile=IC342bgd'])
 ```
 
 After successfully running `nuskybgd fit`, the save file (in this case,
@@ -371,7 +409,7 @@ file and extract the spectrum from it. For this example, the region file is
 named `src1.reg` and the grouped spectrum file is `src1_g30.pha`. Use
 `nuskybgd spec` on the best fit model save file.
 
-```
+```bash
 nuskybgd spec bgdinfo.json mymodel.xcm src1.reg src1_g30.pha
 ```
 
@@ -388,7 +426,7 @@ When the background model is satisfactory, create an Xspec save file with the
 command `save all bgd_src1_mymodel` and use this for the following step.
 Otherwise, just use the output from `nuskybgd spec` (as below).
 
-```
+```bash
 nuskybgd simplify bgdinfo.json bgd_src1.xcm
 ```
 
