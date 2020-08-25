@@ -121,10 +121,10 @@ def get_aspect_hist_peak(asphistimg, xoff=0, yoff=0):
 
 
 def get_aperture_image(detector):
-    from . import conf
+    from . import env
     import os
 
-    auxildir = os.environ[conf._AUX_ENV]
+    auxildir = os.environ[env._AUX_ENV]
     if detector not in ('A', 'B'):
         print('Detector must have value A or B.')
         return False
@@ -375,7 +375,7 @@ def get_badpix_exts(bpixfiles):
 def make_det_mask(evthdr):
     import os
     from . import caldb
-    from . import conf
+    from . import env
 
     # grade weighting from NGC253 002 obs.
     GRADE_WT = [1.00000, 0.124902, 0.117130, 0.114720, 0.118038,
@@ -387,10 +387,10 @@ def make_det_mask(evthdr):
 
     fpm = evthdr['INSTRUME']
     obsutctime = evthdr['DATE-OBS']
-    cal = caldb.CalDB(os.environ[conf._CALDB_ENV])
+    cal = caldb.CalDB(os.environ[env._CALDB_ENV])
     pixpospath = cal.getPIXPOS(fpm, 'DET0', obsutctime)
 
-    pixposf = pf.open('%s/%s' % (os.environ[conf._CALDB_ENV], pixpospath))
+    pixposf = pf.open('%s/%s' % (os.environ[env._CALDB_ENV], pixpospath))
 
     pixmap = np.full((360, 360), -1, dtype=np.int32)
     detnum = np.full((360, 360), -1, dtype=np.int32)
@@ -450,16 +450,16 @@ def get_caldb_instrmap(evthdr):
     Returns (image, FITS header).
     """
     import os
-    from . import conf
+    from . import env
     from . import caldb
     from . import util
 
     fpm = evthdr['INSTRUME']
     obsutctime = evthdr['DATE-OBS']
 
-    cal = caldb.CalDB(os.environ[conf._CALDB_ENV])
+    cal = caldb.CalDB(os.environ[env._CALDB_ENV])
     imappath = cal.getINSTRMAP(fpm, obsutctime)
-    imapf = pf.open('%s/%s' % (os.environ[conf._CALDB_ENV], imappath))
+    imapf = pf.open('%s/%s' % (os.environ[env._CALDB_ENV], imappath))
     try:
         imap = imapf['INSTRMAP'].data
     except KeyError:

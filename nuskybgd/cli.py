@@ -2,7 +2,7 @@
 # This file is part of nuskybgd released under MIT License.
 # See LICENSE file for full details.
 
-from . import conf
+from . import env
 from .util import docformat
 
 
@@ -81,7 +81,7 @@ def absrmf(args=[]):
     {b}detabsfile{o} - Detector absorption file to multiply the RMF with. Set
         it to CALDB (default) to use the latest CALDB file(s).
     """
-    if conf.block() is True:
+    if env.block() is True:
         return 1
 
     import os
@@ -169,7 +169,7 @@ def fit(args=[]):
         {b}bgddetfiles{o} - Dictionary with 'A' and 'B' keys, pointing to
             lists of 4 detector mask image files for each focal plane module.
     """
-    if conf.block() is True:
+    if env.block() is True:
         return 1
 
     import os
@@ -246,7 +246,7 @@ Sample bgdinfo.json:
         if arg[0] in keywords:
             keywords[arg[0]] = arg[1]
 
-    auxildir = conf._AUX_DIR
+    auxildir = env._AUX_DIR
 
     # Input params
     bgdinfo = numodel.check_bgdinfofile(args[1])
@@ -337,7 +337,7 @@ def spec(args=[]):
         prepended to the prefix of the first source region file, e.g.
         src1.reg,src2.reg -> bgd_src1.xcm.
     """
-    if conf.block() is True:
+    if env.block() is True:
         return 1
 
     import os
@@ -361,7 +361,7 @@ def spec(args=[]):
         if arg[0] in keywords:
             keywords[arg[0]] = arg[1]
 
-    auxildir = conf._AUX_DIR
+    auxildir = env._AUX_DIR
 
     # Input params
     bgdinfo = numodel.check_bgdinfofile(args[1])
@@ -495,7 +495,7 @@ def image(args=[]):
     from . import util
     from . import model as numodel
 
-    if conf.block() is True:
+    if env.block() is True:
         return 1
 
     if len(args) not in (5, 6):
@@ -511,7 +511,7 @@ def image(args=[]):
         if arg[0] in keywords:
             keywords[arg[0]] = arg[1]
 
-    auxildir = conf._AUX_DIR
+    auxildir = env._AUX_DIR
 
     # Input params
     bgdinfo = numodel.check_bgdinfofile(args[1])
@@ -607,7 +607,7 @@ def simplify(args=[]):
         file name.
     """
 
-    if conf.block() is True:
+    if env.block() is True:
         return 1
 
     import xspec
@@ -688,7 +688,7 @@ def mkinstrmap(args=[]):
     from .util import fpm_parse, print_hr
     import astropy.io.fits as pf
 
-    if conf.block() is True:
+    if env.block() is True:
         return 1
 
     ERR_BPIXFILE_NOTFOUND = """
@@ -773,9 +773,9 @@ Error: bad pixel file not found, skipping:
     print('Creating instrument maps for FPM%s for observation %s' % (
         ab, obsinfofile))
 
-    caldbbpixpath = conf._CALDB.getBADPIX(
+    caldbbpixpath = env._CALDB.getBADPIX(
         evthdr['INSTRUME'], 'DET0', evthdr['DATE-OBS'])
-    bpixfiles.append('%s/%s' % (conf._CALDB_PATH, caldbbpixpath))
+    bpixfiles.append('%s/%s' % (env._CALDB_PATH, caldbbpixpath))
 
     print('Collecting bad pixel lists...')
     bpixexts = get_badpix_exts(bpixfiles)
@@ -824,7 +824,7 @@ def projbgd(args=[]):
     each detector specified by det= will also be created, named
     det[0-3]Aim.fits.
     """
-    if conf.block() is True:
+    if env.block() is True:
         return 1
 
     if len(args) == 1:
@@ -887,7 +887,7 @@ def projbgd(args=[]):
         print('No valid detector number specified.')
         return 1
 
-    auxildir = conf._AUX_DIR
+    auxildir = env._AUX_DIR
 
     if opts['out'][0] != '!':
         halt = False
