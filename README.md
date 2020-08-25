@@ -7,7 +7,7 @@
 - You need a Python 3 (3.6 or newer) environment; compile PyXspec against it. See SETUP.
 
 
-# Quick start guide
+# Basic walkthrough
 
 ## 1. Environment variables
 
@@ -491,10 +491,5 @@ FCXB choice for users whether to tie some regions/how
 
 Create hardcoded table model of the total background to read in to Xspec?
 
-
-
-
-
----
 
 
