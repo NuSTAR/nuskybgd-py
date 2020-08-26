@@ -225,8 +225,8 @@ Sample bgdinfo.json:
             [5, 6]
         ]
     },
-    
-    "fix_line_ratios": true
+
+    "intbgd_fix_line_ratios": true
 }
 """
 
@@ -286,8 +286,8 @@ Sample bgdinfo.json:
     # arbitrary but the same ones must be used in subsequent processes that
     # will load this Xspec save file.
     numodel.applymodel_apbgd(presets, refspec, bgdapimwt, 2)
-    numodel.applymodel_intbgd(presets, refspec, bgddetimsum,3, 
-        fix_line_ratios=bgdinfo['fix_line_ratios'])
+    numodel.applymodel_intbgd(presets, refspec, bgddetimsum, 3,
+        fix_line_ratios=bgdinfo['intbgd_fix_line_ratios'])
     numodel.applymodel_fcxb(refspec, bgddetimsum, 4)
     numodel.applymodel_intn(presets, refspec, bgddetimsum, 5)
     if 'fcxb_config' in bgdinfo and 'links' in bgdinfo['fcxb_config']:
@@ -444,8 +444,8 @@ def spec(args=[]):
     ##########
     # These models need to have the same number as in fit() or it won't work!
     numodel.applymodel_apbgd(presets, refspec, bgdapimwt, 2, src_number=src_number)
-    numodel.applymodel_intbgd(presets, refspec, bgddetimsum,3, 
-        fix_line_ratios=bgdinfo['fix_line_ratios'], src_number=src_number)
+    numodel.applymodel_intbgd(presets, refspec, bgddetimsum, 3, src_number=src_number,
+                              fix_line_ratios=bgdinfo['intbgd_fix_line_ratios'])
     numodel.applymodel_fcxb(refspec, bgddetimsum, 4, src_number=src_number)
     numodel.applymodel_intn(presets, refspec, bgddetimsum, 5, src_number=src_number)
     ##########

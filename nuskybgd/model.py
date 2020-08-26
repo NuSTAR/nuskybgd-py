@@ -177,8 +177,8 @@ def check_bgdinfofile(bgdinfofile):
     queue.append(bgdinfo['bgdapfiles']['A'])
     queue.append(bgdinfo['bgdapfiles']['B'])
 
-    if 'fix_line_ratios' not in bgdinfo:
-        bgdinfo['fix_line_ratios'] = False
+    if 'intbgd_fix_line_ratios' not in bgdinfo:
+        bgdinfo['intbgd_fix_line_ratios'] = False
 
     for _ in queue:
         if not os.path.exists(_):
@@ -766,6 +766,9 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
 
                 parnum += 3
 
+            lorentz_5_norm = line_norm  # Last calculated preset norm
+            lorentz_5_norm_npar = spec_arrinx * m.nParameters + 16
+
             # All the other lines -- lorentz_6 through lorentz_(components) --
             # if fix_line_ratios=True, scale their initial norm to 19 keV line
             # (lorentz_5) using preset ratios. There are 4+3*3=13 parameters
@@ -785,17 +788,8 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
                 })
 
                 if fix_line_ratios:
-                    if attr_n == 5:
-                        # If you're lorentz_6 then you can pick up the line norm
-                        # from above. 
-                        base_norm = line_norm
-                        lorentz_5_norm_npar = spec_arrinx * m.nParameters + 16
 
-#                   This doesn't work because we haven't told the model what it's value
-#                   is yet.
-#                    line_ratio = norm_preset / m.lorentz_5.norm.values[0]
-                    line_ratio = norm_preset / base_norm
-
+                    line_ratio = norm_preset / lorentz_5_norm
                     newpar.update({
                         parnum + 2: f"={line_ratio:e} * {model_name}:{lorentz_5_norm_npar}"
                     })
