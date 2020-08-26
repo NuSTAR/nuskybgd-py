@@ -10,7 +10,7 @@ def run(args=[]):
     """
 {b}NAME{o}
     {b}nuskybgd{o}
-    Run nuskybgd tasks.
+    Run nuskybgd tasks from command line.
 
 {b}USAGE{o}
     nuskybgd task [arguments for task]
@@ -20,6 +20,8 @@ def run(args=[]):
     The functions for these tasks can also be used in Python, either in an
     interactive session or in a script, by passing an arguments list to them
     in lieu of sys.argv.
+
+    (For Python functions, see their __doc__ attribute.)
 
     The following tasks are available:
 
