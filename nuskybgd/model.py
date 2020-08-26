@@ -676,7 +676,12 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
 
     fix_line_ratios : bool
         (Optional, default: ``False``) Scale Gaussian line norms after the 19
-        keV line to the 19 keV norm.
+        keV line to the 19 keV norm. This affects only the reference spectra
+        for the A and B modules, since parameters for the other spectra are
+        tied to the reference spectra parameters rather than to its own
+        parameters. E.g. when called by ``nuskybgd.cli.spec()`` with a
+        ``src_number`` that is greater than the number of background data
+        groups, this setting has no effect.
     """
     mod_intbgd = presets['models'][1]['components']
 
