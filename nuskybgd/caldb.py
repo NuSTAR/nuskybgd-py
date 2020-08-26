@@ -12,28 +12,21 @@ import sys
 class CalDB:
     """
     CalDB class to look up appropriate CALDB file. The logic for selecting the
-    file is in getcaldbfile(). Various functions such as getDETABS() exist,
-    calling getcaldbfile() with certain preset arguments.
+    file is in ``getcaldbfile()``. Various functions such as ``getDETABS()``
+    exist, calling ``getcaldbfile()`` with certain preset arguments.
 
-    Example (Python)
+    Examples
+    --------
 
-    Input:
-
-    caldb_path = '/usr/local/heasarc/CALDB'
-    telescope = 'NUSTAR'
-    instrument = 'FPMA'  # FPMA or FPMB
-    cnam = 'PIXPOS'
-    obsutctime = '2014-01-01T00:00:00'
-    detnam = 'DET0'  # DET0 - DET3
-
-    cal = CalDB(caldb_path)
-    cal.getcaldbfile(caldb_path, telescope, instrument, cnam,
-                     detnam, obsutctime)
-
-    Output:
-
-    [Print]
-
+    >>> caldb_path = '/usr/local/heasarc/CALDB'
+    >>> telescope = 'NUSTAR'
+    >>> instrument = 'FPMA'  # FPMA or FPMB
+    >>> cnam = 'PIXPOS'
+    >>> obsutctime = '2014-01-01T00:00:00'
+    >>> detnam = 'DET0'  # DET0 - DET3
+    >>> cal = CalDB(caldb_path)
+    >>> caldbfile = cal.getcaldbfile(caldb_path, telescope, instrument,
+    ...                              cnam, detnam, obsutctime)
     CALDB files for PIXPOS FPMA DET0:
     /usr/local/heasarc/CALDB/
     data/nustar/fpm/bcf/pixpos/nuApixpos20100101v001.fits
@@ -43,26 +36,16 @@ class CalDB:
     data/nustar/fpm/bcf/pixpos/nuApixpos20100101v005.fits
     data/nustar/fpm/bcf/pixpos/nuApixpos20100101v006.fits
     data/nustar/fpm/bcf/pixpos/nuApixpos20100101v007.fits ***SELECTED***
-
-    [Return]
+    >>> caldbfile
     'data/nustar/fpm/bcf/pixpos/nuApixpos20100101v007.fits'
 
-    Input:
-
-    cal.getcaldbfile(caldb_path, telescope, instrument, 'BADPIX',
-                     detnam, obsutctime)
-
-    Output:
-
-    [Print]
-
+    >>> caldbfile = cal.getcaldbfile(caldb_path, telescope, instrument,
+    ...                              'BADPIX', detnam, obsutctime)
     CALDB files for BADPIX FPMA DET0:
     /usr/local/heasarc/CALDB/
     data/nustar/fpm/bcf/badpix/nuAbadpix20100101v001.fits
     data/nustar/fpm/bcf/badpix/nuAbadpix20100101v002.fits ***SELECTED***
-
-    [Return]
-
+    >>> caldbfile
     'data/nustar/fpm/bcf/badpix/nuAbadpix20100101v002.fits'
     """
 
@@ -81,45 +64,54 @@ class CalDB:
     # ------------------------------------
 
     def getGRPPSF(self, instrument, obsutctime):
+        """Call ``getcaldbfile()`` with ``cnam='GRPPSF'``."""
         return self.getcaldbfile(
             self.telescope, instrument, 'GRPPSF', None, obsutctime)
 
     def getDETABS(self, instrument, detnam, obsutctime):
+        """Call ``getcaldbfile()`` with ``cnam='DETABS'``."""
         return self.getcaldbfile(
             self.telescope, instrument, 'DETABS', detnam, obsutctime)
 
     def getGRPRMF(self, instrument, detnam, obsutctime):
+        """Call ``getcaldbfile()`` with ``cnam='GRPRMF'``."""
         return self.getcaldbfile(
             self.telescope, instrument, 'GRPRMF', detnam, obsutctime)
 
     def getSPECRESP(self, instrument, obsutctime):
+        """Call ``getcaldbfile()`` with ``cnam='SPECRESP'``."""
         return self.getcaldbfile(
             self.telescope, instrument, 'SPECRESP', None, obsutctime)
 
     def getTVIGNET(self, instrument, obsutctime):
+        """Call ``getcaldbfile()`` with ``cnam='TVIGNET'``."""
         return self.getcaldbfile(
             self.telescope, instrument, 'TVIGNET', None, obsutctime)
 
     def getINSTRMAP(self, instrument, obsutctime):
+        """Call ``getcaldbfile()`` with ``cnam='INSTRMAP'``."""
         return self.getcaldbfile(
             self.telescope, instrument, 'INSTRMAP', None, obsutctime)
 
     def getBADPIX(self, instrument, detnam, obsutctime):
+        """Call ``getcaldbfile()`` with ``cnam='BADPIX'``."""
         return self.getcaldbfile(
             self.telescope, instrument, 'BADPIX', detnam, obsutctime)
 
     def getPIXPOS(self, instrument, detnam, obsutctime):
+        """Call ``getcaldbfile()`` with ``cnam='PIXPOS'``."""
         return self.getcaldbfile(
             self.telescope, instrument, 'PIXPOS', detnam, obsutctime)
 
     def getAPERTURE(self, instrument, obsutctime):
+        """Call ``getcaldbfile()`` with ``cnam='APERTURE'``."""
         return self.getcaldbfile(
             self.telescope, instrument, 'APERTURE', None, obsutctime)
 
     def getRMF(self, instrument, detnam, obsutctime):
         """
-        First look for the GRPRMF file, then look for the RMF file for the
-        specified DETNAM.
+        First look for the GRPRMF file using ``getGRPRMF()``, then look for
+        the RMF file for the specified DETNAM.
         """
         idet = int(detnam[-1])
         grprmffile = self.getGRPRMF(instrument, detnam, obsutctime)

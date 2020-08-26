@@ -27,6 +27,19 @@ _CALDB = None
 def check():
     """
     Check for configuration problems.
+
+    - ``NUSKYBGD_AUXIL`` shell environment variable is set. The name of this
+      variable is defined by ``nuskybgd.env._AUX_ENV``.
+    - Auxiliary files listed in ``nuskybgd.env._AUX_FILES`` are present.
+    - ``CALDB`` shell environment variable is set. The name of this variable
+      is defined by ``nuskybgd.env._CALDB_ENV``.
+    - ``CALDBCONFIG`` shell environment variable is set. The name of this
+      variable is defined by ``nuskybgd.env._CALDB_CONF_ENV``.
+    - An instance of ``nuskybgd.caldb.CalDB()`` is created successfully using
+      the path in ``CALDB`` environment variable.
+
+    If these conditions are met, ``nuskybgd.env._PASSCHECK`` is set to
+    ``True`` and subsequent calls to ``nuskybgd.env.block()`` return ``False``.
     """
     from . import caldb
 
@@ -68,7 +81,7 @@ def check():
 
 def block():
     """
-    Return True if env.check() did not pass, and prints an info message.
+    Return ``True`` if ``env.check()`` did not pass, and prints an info message.
     """
     if env._PASSCHECK is False:
         print('Errors encountered when checking setup for nuskybgd.')

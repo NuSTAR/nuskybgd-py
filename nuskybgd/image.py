@@ -70,16 +70,24 @@ def write_aspecthist_img(asphistimg, outfilename, aimpointext, offsets,
 
 def get_det_mask(instmap_mask_file, detnum):
     """
-    Return an image of the instrument map mask for the specified detector(s).
-    Active area is set to 1, the rest 0. Require instmap_mask_file to be str.
-    Require detnum to be int or [int].
-
-    Usage: get_det_mask(instmap_mask_file, detnum)
-
-    Output: mask[det, y, x] is a 3D numpy array, in which mask[i] are detector
-    masks for each detector.
+    Create image masks of individual detectors from the instrument map mask
+    image.
 
     TODO: add input validation.
+
+    Parameters
+    ----------
+    instmap_mask_file : str
+        Path to the instrument mask file.
+    detnum : int or list of int
+        Detector number(s).
+
+    Returns
+    -------
+    np.ndarray[det, y, x]
+        3D numpy array, containing images with the same shape as the
+        instrument mask, with the active area of the detector set to ``1``,
+        and elsewhere set to ``0``.
     """
     if isinstance(detnum, int):
         detnum = [detnum]
@@ -160,39 +168,64 @@ def get_aperture_image(detector):
 
 def transform_image(image, shiftx, shifty, angle, order=1):
     """
-    Apply shift and rotation to the image. The translation is applied first,
-    then the rotation.
+    Apply shift and rotation to the image.
 
-    Usage: transform_image(image, dx, dy, angle)
+    The translation is applied first, then the rotation. If no rotation is
+    requested (``angle=0``), then ``scipy.ndimage.shift()`` is called to
+    perform a translation. Otherwise, ``scipy.ndimage.affine_transform()`` is
+    called. In both cases the settings ``mode='wrap', prefilter=False`` are
+    used. Prefilter *must* be turned off because it applies lossy image
+    sharpening leading to artifacts.
 
-    The rotation angle is in radians and the translation is in pixel.
+    Parameters
+    ----------
+    image : numpy.ndarray
+        2D image input.
+    shiftx : float
+        Shift in the x-axis in pixels.
+    shifty : float
+        Shift in the y-axis in pixels.
+    angle : float
+        Rotation angle in radians (positive is clockwise).
+    order : int
+        (Optional, default: 1) Spline interpolation order. 1 for bilinear, 3
+        for bicubic (bilinear is the original behavior).
 
+    Returns
+    -------
+    numpy.ndarray
+        Transformed image.
+
+    Notes
+    -----
     The transformation is implemented as sequence of affine transformations.
-    The scipy module takes a matrix of the form (ndim + 1, ndim + 1), where it
-    assumes that the transformation is specified using homogeneous
+    The ``scipy`` module takes a matrix of the form (ndim + 1, ndim + 1),
+    where it assumes that the transformation is specified using homogeneous
     coordinates. This matrix has the 2x2 rotation matrix in the top left
     corner, and the linear shifts in the top right. They are applied in this
     order:
 
-    1  0  shiftx
-    0  1  shifty
-    0  0  1
-    (translation by shift amounts)
+    .. code-block:: text
 
-    1  0  -(X-1)/2
-    0  1  -(Y-1)/2
-    0  0  1
-    (translation to center rotation on the IDL rot center)
+        1  0  shiftx
+        0  1  shifty
+        0  0  1
+        (translation by shift amounts)
 
-    cos  sin 0
-    -sin cos 0
-    0    0   1
-    (clockwise rotation)
+        1  0  -(X-1)/2
+        0  1  -(Y-1)/2
+        0  0  1
+        (translation to center rotation on the IDL rot center)
 
-    1  0  +(X-1)/2
-    0  1  +(Y-1)/2
-    0  0  1
-    (undo translation for center of rotation)
+        cos  sin 0
+        -sin cos 0
+        0    0   1
+        (clockwise rotation)
+
+        1  0  +(X-1)/2
+        0  1  +(Y-1)/2
+        0  0  1
+        (undo translation for center of rotation)
     """
 
     if shiftx == 0 and shifty == 0 and angle == 0:
@@ -241,14 +274,23 @@ def transform_image(image, shiftx, shifty, angle, order=1):
 
 def crop_image(image):
     """
-    Crop an image with 0 padding so that there is no empty margin. Return the
-    cropped image, and the x, y offsets of the new image coordinates relative
-    to the uncropped image. If there is no non-zero value in the image,
-    returns False.
+    Crop an image that has a padding of 0 value so that there is no empty
+    margin. Return the cropped image, and the x, y offsets of the new image
+    coordinates relative to the uncropped image. If there is no non-zero value
+    in the image, returns False.
 
-    Usage: crop_image(image)
+    Parameters
+    ----------
+    image : numpy.ndarray
+        The input image.
 
-    Return: (cropped image, [offset_x, offset_y])
+    Returns
+    -------
+    (numpy.ndarray, [int, int])
+        The cropped image and the [x, y] offsets relative to the uncropped
+        image.
+    False
+        If the image has no non-zero pixels.
     """
     _ = np.abs(image)
     filled_x = np.where(np.sum(_, axis=0) != 0)[0]
@@ -268,6 +310,16 @@ def crop_image(image):
 def get_evtfile_pa(evtfile):
     """
     Get position angle from events file header.
+
+    Parameters
+    ----------
+    evtfile : str
+        Path to the events file.
+
+    Returns
+    -------
+    float
+        The position angle.
     """
     hdus = pf.open(evtfile)
     pa = hdus['EVENTS'].header['PA_PNT'] + 1.0
@@ -447,7 +499,16 @@ def get_caldb_instrmap(evthdr):
     """
     Get instrument map image from CALDB, shifted by (-1, -1).
 
-    Returns (image, FITS header).
+    Parameters
+    ----------
+    evthdr : astropy.io.fits.Header
+        The FITS header of the event file to get the CALDB instrument map for.
+
+    Returns
+    -------
+    (numpy.ndarray, astropy.io.fits.Header)
+        The CALDB instrument map and the header of the instrument map
+        extension.
     """
     import os
     from . import env

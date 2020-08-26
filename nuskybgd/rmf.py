@@ -16,15 +16,17 @@ def add_abs_hdu(detabshdu, rmfhdu):
 
     **The input 'rmfhdu' is modified.**
 
-    Example uses:
+    Use cases:
 
     - Add DETABS from CALDB to the RMF file from CALDB.
     - Add weighed DETABS to a user supplied RMF file.
 
-    Inputs:
-
-    detabshdu -- HDU with BinTable 'DETABS' containing absorption data
-    rmfhdu -- HDU with BinTable 'MATRIX' containing RMF data
+    Parameters
+    ----------
+    detabshdu : astropy.io.fits.BinTableHDU
+        HDU with BinTable 'DETABS' containing absorption data.
+    rmfhdu : astropy.io.fits.BinTableHDU
+        HDU with BinTable 'MATRIX' containing RMF data.
     """
     if not (isinstance(detabshdu, pf.hdu.table.BinTableHDU) and
             isinstance(rmfhdu, pf.hdu.table.BinTableHDU)):
@@ -42,8 +44,9 @@ def add_abs_hdu(detabshdu, rmfhdu):
 
 def add_abs_fits(detabsfile, rmffile):
     """
-    Add detector absorption to response matrix. Doing so may obviate the need
-    for a separate ARF file. This function works with FITS files.
+    [Placeholder] Add detector absorption to response matrix. Doing so may
+    obviate the need for a separate ARF file. This function works with FITS
+    files.
     """
     pass
 
@@ -53,19 +56,23 @@ def detabs_hdu(abshdus, weights):
     Coadd absorption spectrum of the detectors using the given weights. The
     weights are normalized to unity before proceeding.
 
-    Example uses:
+    Use cases:
 
     - Get detector absorption weighed by area inside a source region.
     - Get absorption of a single detector by giving it 100% weight.
 
-    Inputs:
+    Parameters
+    ----------
+    abshdus : astropy.io.fits.HDUList
+        e.g. CALDB DETABS FITS file.
 
-    abshdus -- HDUList (e.g. CALDB DETABS FITS file)
-    weights -- A list of 4 values
+    weights : list of float
+        4 values corresponding to the detector weights.
 
-    Outputs:
-
-    BinTableHDU 'DETABS' containing absorption data
+    Returns
+    -------
+    astropy.io.fits.BinTableHDU
+        A BinTableHDU 'DETABS' containing weighted absorption data.
     """
     if not ((isinstance(weights, list) or
              isinstance(weights, np.ndarray)) and
@@ -103,11 +110,16 @@ def add_weighted_abs(abshdus, weights, rmfhdu):
 
     **The input 'rmfhdu' is modified in-place.**
 
-    Inputs:
+    Parameters
+    ----------
+    abshdus : astropy.io.fits.HDUList
+        e.g. CALDB DETABS FITS file
 
-    abshdus -- HDUList (e.g. CALDB DETABS FITS file)
-    weights -- A list of 4 values
-    rmfhdu -- BinTableHDU with RMF data
+    weights : list of float
+        4 values corresponding to the detector weights.
+
+    rmfhdu : astropy.io.fits.BinTableHDU
+        A BinTableHDU with RMF data.
     """
     weighted_abs = detabs_hdu(abshdus, weights)
 
