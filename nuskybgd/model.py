@@ -859,9 +859,9 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
                 ######################
 
                 norm_preset = np.sum(
-                    bgddetimsum[i] * np.array(
+                    bgddetimsum[spec_arrinx] * np.array(
                         _pars['ifactors'])
-                ) / np.sum(bgddetimsum[i])
+                ) / np.sum(bgddetimsum[spec_arrinx])
 
                 line_ratio = norm_preset / ref_preset
 
