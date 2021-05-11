@@ -634,7 +634,11 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
     For the other spectra:
 
     *   All of the normalizations are linked to their reference spec
-        counterparts.
+        counterparts using::
+
+            sum(ifactor * bgddetimsum) of current spectrum
+            ----------------------------------------------
+            sum(ifactor * bgddetimsum) of reference
 
 
     Note: due to perculiar model component numbering in XSPEC, as in the
@@ -734,15 +738,18 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
 
         newpar = {}
 
-        # Reference spectrum
+        ######################
+        # Reference spectrum #
+        ######################
         if spec_arrinx == refspec['A'] or spec_arrinx == refspec['B']:
             m_ref_npar_offset = m.nParameters * refspec[fpm]
 
+            spec_area = np.sum(bgddetimsum[spec_arrinx])
             _pars = mod_intbgd['apec'][fpm]
 
             apec_norm = np.sum(
                 bgddetimsum[spec_arrinx] * np.array(_pars['ifactors'])
-            ) / np.sum(bgddetimsum[spec_arrinx])
+            ) / spec_area
 
             newpar.update({
                 1: f"{_pars['kt']}, -0.01",
@@ -761,7 +768,7 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
 
                 line_norm = np.sum(
                     bgddetimsum[spec_arrinx] * np.array(_pars['ifactors'])
-                ) / np.sum(bgddetimsum[spec_arrinx])
+                ) / spec_area
 
                 newpar.update({
                     parnum: f"{_pars['linee']}, -0.05",
@@ -785,7 +792,7 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
 
                 norm_preset = np.sum(
                     bgddetimsum[spec_arrinx] * np.array(_pars['ifactors'])
-                ) / np.sum(bgddetimsum[spec_arrinx])
+                ) / spec_area
 
                 newpar.update({
                     parnum: f"{_pars['linee']}, -0.05",
@@ -807,7 +814,10 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
                 parnum += 3
 
         else:
-            # Link to ref spectrum
+            ########################
+            # Link to ref spectrum #
+            ########################
+
             # m_ref = xspec.AllModels(refspec[fpm] + 1, model_name)
             m_ref_npar_offset = m.nParameters * refspec[fpm]
 
@@ -816,16 +826,16 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
             _pars = mod_intbgd['apec'][fpm]
 
             norm_preset = np.sum(
-                bgddetimsum[spec_arrinx] * np.array(_pars['ifactors'])
-            ) / np.sum(bgddetimsum[spec_arrinx])
+                bgddetimsum[spec_arrinx] * np.float64(_pars['ifactors'])
+            )
 
             ##################
-            # Special consideration if not startig with spectrum 1.
+            # Special consideration if not starting with spectrum 1.
             # The reference preset may have changed after fitting, so we must
             # calculate its original value for scaling.
             ref_preset = np.sum(
-                bgddetimsum[refspec[fpm]] * np.array(_pars['ifactors'])
-            ) / np.sum(bgddetimsum[refspec[fpm]])
+                bgddetimsum[refspec[fpm]] * np.float64(_pars['ifactors'])
+            )
             ##################
 
             line_ratio = norm_preset / ref_preset
@@ -849,19 +859,17 @@ def applymodel_intbgd(presets, refspec, bgddetimsum, model_num,
                 _pars = mod_intbgd[attr][fpm]
 
                 ######################
-                # Special consideration if not startig with spectrum 1.
+                # Special consideration if not starting with spectrum 1.
                 # Calculate the original value for scaling
                 ########################
                 ref_preset = np.sum(
-                    bgddetimsum[refspec[fpm]] * np.array(
-                        _pars['ifactors'])
-                ) / np.sum(bgddetimsum[refspec[fpm]])
+                    bgddetimsum[refspec[fpm]] * np.float64(_pars['ifactors'])
+                )
                 ######################
 
                 norm_preset = np.sum(
-                    bgddetimsum[spec_arrinx] * np.array(
-                        _pars['ifactors'])
-                ) / np.sum(bgddetimsum[spec_arrinx])
+                    bgddetimsum[spec_arrinx] * np.float64(_pars['ifactors'])
+                )
 
                 line_ratio = norm_preset / ref_preset
 
