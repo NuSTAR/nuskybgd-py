@@ -6,6 +6,20 @@
 
 - You need a Python 3 (3.6 or newer) environment; compile PyXspec against it. See SETUP.
 
+# Notes and attribution
+
+- Based on the IDL implementation of [nuskybgd](https://github.com/NuSTAR/nuskybgd).
+
+- This has been forked from the original repository from [achronal](https://github.com/achronal/nuskybgd-py).
+
+- The original paper citation for nuskybgd is [Wik et al., 2014](http://adsabs.harvard.edu/cgi-bin/bib_query?arXiv:1403.2722). If you use nuskybgd in your work, please cite this paper.
+
+# Contributing and Support
+
+If you'd like to say hello, drop onto the NuSTAR Slack channel from the
+[NuSTAR Observer's page](https://www.nustar.caltech.edu/page/observers).
+
+Below consists of achronal's original quickstart guide for setting up the environment. An additional practical example can be found from bwgref [here](https://github.com/bwgref/nuskybgd-py/blob/main/notebooks/walkthroughs/nuskybgd_walkthrough.ipynb).
 
 # Quick start guide
 
@@ -473,28 +487,5 @@ cd bgd/
 imrefspec.py AB 0123
 ```
 
-
----
-
-
-TODO
-
-Lookup nucoord source to figure out coord transform, make instrmap use the
-same method.
-
-hard background modelling examples
-ophiuchus -- cluster fills fov
-A2146 -- gain shifts
-
-
-FCXB choice for users whether to tie some regions/how
-
-Create hardcoded table model of the total background to read in to Xspec?
-
-
-
-
-
----
 
 
