@@ -23,6 +23,14 @@ _CALDB_CONF_ENV = 'CALDBCONFIG'
 _CALDB_PATH = None
 _CALDB = None
 
+# Set several of the default parameters:
+
+# Directory housing env.py
+curdir = os.path.dirname(__file__)
+auxdir = os.path.abspath(os.path.join(curdir, '../auxil'))
+
+# 
+
 
 def check():
     """
@@ -44,19 +52,19 @@ def check():
     from . import caldb
 
     fail = False
-
-    # Auxil directory
-    if env._AUX_ENV not in os.environ:
-        print('Please set the %s environment variable first.' % env._AUX_ENV)
-        fail = True
-    else:
-        env._AUX_DIR = os.environ[env._AUX_ENV]
-
-        # Check auxil dir is OK...
-        for _ in env._AUX_FILES:
-            if not os.path.exists('%s/%s' % (env._AUX_DIR, _)):
-                print('Error: %s not in auxil directory!' % _)
-                fail = True
+# 
+#     # Auxil directory
+#     if env._AUX_ENV not in os.environ:
+#         print('Please set the %s environment variable first.' % env._AUX_ENV)
+#         fail = True
+#     else:
+#         env._AUX_DIR = os.environ[env._AUX_ENV]
+# 
+#         # Check auxil dir is OK...
+#         for _ in env._AUX_FILES:
+#             if not os.path.exists('%s/%s' % (env._AUX_DIR, _)):
+#                 print('Error: %s not in auxil directory!' % _)
+#                 fail = True
 
     # CALDB check
     if env._CALDB_ENV not in os.environ:
