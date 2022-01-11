@@ -2,53 +2,76 @@
 
 - Nuskybgd interacts with Xspec via PyXspec; you must install HEASOFT from source to use PyXspec.
 
-    Download HEASOFT: https://heasarc.gsfc.nasa.gov/lheasoft/download.html
+    [Download HEASOFT](https://heasarc.gsfc.nasa.gov/lheasoft/download.html])
 
-- You need a Python 3 (3.6 or newer) environment; compile PyXspec against it. See SETUP.
+- You need a Python 3 (3.6 or newer) environment.
+
+- We recommend installing nuskybgd in its own virtual environment (i.e., using a ["miniconda" installation](https://docs.conda.io/en/latest/miniconda.html)).
+
+- The build instructions for pyXspec can be found [here](https://heasarc.gsfc.nasa.gov/xanadu/xspec/python/html/buildinstall.html). Please build and confirm that pyXspec is working *first* before attempting to install nuskybgd.
 
 # Notes and attribution
 
-- Based on the IDL implementation of [nuskybgd](https://github.com/NuSTAR/nuskybgd).
+- Based on the IDL implementation of [`nuskybgd`](https://github.com/NuSTAR/nuskybgd).
 
 - This has been forked from the original repository from [achronal](https://github.com/achronal/nuskybgd-py).
 
-- The original paper citation for nuskybgd is [Wik et al., 2014](http://adsabs.harvard.edu/cgi-bin/bib_query?arXiv:1403.2722). If you use nuskybgd in your work, please cite this paper.
+- The original paper citation for `nuskybgd` is [Wik et al., 2014](http://adsabs.harvard.edu/cgi-bin/bib_query?arXiv:1403.2722). If you use `nuskybgd` in your work, please cite this paper.
 
 # Contributing and Support
 
 If you'd like to say hello, drop onto the NuSTAR Slack channel from the
 [NuSTAR Observer's page](https://www.nustar.caltech.edu/page/observers).
 
-Below consists of achronal's original quickstart guide for setting up the environment. An additional practical example can be found from bwgref [here](https://github.com/bwgref/nuskybgd-py/blob/main/notebooks/walkthroughs/nuskybgd_walkthrough.ipynb).
+Please feel free to report issues and/or code pull requests.
 
-# Quick start guide
+***
+
+# Installation
 
 ## 1. Environment variables
 
-These environment variables must be set up before anything else. Modify the
-paths to point to the correct location on your machine.
+These standard HEASARC environment variables must be set up before anything else. Modify the paths to point to the correct location on your machine.
 
 ```bash
-# bash, zsh
-
-# NUSKYBGD
-export NUSKYBGD=$HOME/astro/soft/nuskybgd
-export NUSKYBGD_AUXIL=$NUSKYBGD/auxil
+# bash, zsh example
 
 # HEASARC CALDB
 export CALDB=/soft/astro/heasarc/CALDB
-export CALDBCONFIG=$CALDB/software/tools/caldb.config
-
-# Add nuskybgd executables to $PATH
-export PATH=$NUSKYBGD/bin:$PATH
-
-# Add nuskybgd to $PYTHONPATH for its modules to be found
-export PYTHONPATH=$NUSKYBGD:$PYTHONPATH
-
-# In csh and tcsh the export statement is setenv instead (use double quotes)
-# setenv PATH "$NUSKYBGD/bin:$PATH"
 ```
 
+## 2. Create a new environement for nuskybgd, using python 3.7
+
+```
+create create --name nuskybgd-py py=3.7
+conda activate nuskybgd-py
+```
+
+## 2. Install the python dependencies for nuskybgd
+
+```
+cd ~/git/nuskybgd-py
+pip install -r requirements.txt
+```
+
+## 3. Build and install nuskybgd
+
+```
+cd ~/git/nuskbygd-py
+pip install -e .
+```
+
+`nuskybgd` is now callable from the command line in your python shell. While `nuskybgd-py` is a python repo, we typically recommend calling the various routines from the command line for simplicity.
+
+
+## You are now ready to run nuskybgd!
+
+Below is the original QuickStart guide from
+achronal. elow consists of achronal's original quickstart guide for setting up the environment. An additional practical example can be found from bwgref [here](https://github.com/NuSTAR/nuskybgd-py/blob/main/notebooks/walkthroughs/nuskybgd_walkthrough.ipynb).
+
+***
+
+<!-- 
 In order to not clutter your environment variables and paths, you can wrap the
 above in a file and only run the export statements when you need them. For
 example, you can save the above to a file `~/nuskybgd-init.sh`. Then in your
@@ -64,7 +87,10 @@ alias nuskybgdinit="source ~/nuskybgd-init.sh"
 
 The next time you start a shell session, the new alias will be loaded, and you
 can set the environment variables with `nuskybgdinit`.
+ -->
+# Quickstart Guide
 
+## 1. Before you begin:
 
 Assuming you have the 'default' layout for files, e.g. cleaned event files are
 in `[target name]/[obs id]/event_cl`, the examples below puts background
