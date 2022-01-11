@@ -1109,3 +1109,11 @@ def aspecthist(args=[]):
         (x_min, x_max, y_min, y_max), overwrite=True)
 
     return 0
+
+
+def main_nuskybgd():
+    """
+    Entry point for main CLI interface
+    """
+    import sys
+    code = run(sys.argv)
