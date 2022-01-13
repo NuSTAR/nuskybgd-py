@@ -27,9 +27,12 @@ _CALDB = None
 
 # Directory housing env.py
 curdir = os.path.dirname(__file__)
-auxdir = os.path.abspath(os.path.join(curdir, '../auxil'))
+auxildir = os.path.abspath(os.path.join(curdir, '../auxil'))
 
-# 
+
+#export CALDBCONFIG=$CALDB/software/tools/caldb.config
+
+### NEED TO PROPAGAGE THE AUXDIR STUFF ABOVE TO WHERE IT'S USED!!
 
 
 def check():
