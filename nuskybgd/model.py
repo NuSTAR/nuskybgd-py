@@ -548,7 +548,7 @@ def applymodel_apbgd(presets, refspec, bgdapimwt, model_num, src_number=None,
     for i in range(spec_count):
         s = xspec.AllData(i + spec_start)
         s.multiresponse[model_num - 1] = s.response.rmf
-        s.multiresponse[model_num - 1].arf = '%s/be.arf' % env._AUX_DIR
+        s.multiresponse[model_num - 1].arf = '%s/be.arf' % env.auxildir
 
     if model_num not in xspec.AllModels.sources:  # Adding new, or updating?
         xspec.Model('cutoffpl', model_name, model_num)
@@ -946,7 +946,7 @@ def applymodel_fcxb(refspec, bgddetimsum, model_num, src_number=None,
         s = xspec.AllData(i + spec_start)
         s.multiresponse[model_num - 1] = s.response.rmf
         s.multiresponse[model_num - 1].arf = '%s/fcxb%s.arf' % (
-            env._AUX_DIR, util.fpm_parse(s.fileinfo('INSTRUME')))
+            env.auxildir, util.fpm_parse(s.fileinfo('INSTRUME')))
 
     # Are we adding the model, or updating it?
     if model_num not in xspec.AllModels.sources:
@@ -1099,7 +1099,7 @@ def applymodel_intn(presets, refspec, bgddetimsum, model_num, src_number=None,
     # Add the response for this source.
     for i in range(spec_count):
         s = xspec.AllData(i + spec_start)
-        s.multiresponse[model_num - 1] = '%s/diag.rmf' % env._AUX_DIR
+        s.multiresponse[model_num - 1] = '%s/diag.rmf' % env.auxildir
 
     # Are we adding the model, or updating it?
     if model_num not in xspec.AllModels.sources:
@@ -1169,7 +1169,7 @@ def addmodel_grxe(presets, refspec, model_num, model_name='grxe'):
     for i in range(xspec.AllData.nSpectra):
         s = xspec.AllData(i + 1)
         s.multiresponse[model_num - 1] = s.response.rmf
-        s.multiresponse[model_num - 1].arf = '%s/be.arf' % env._AUX_DIR
+        s.multiresponse[model_num - 1].arf = '%s/be.arf' % env.auxildir
 
 
 def read_xspec_model_norms(spec_nums=None):
@@ -1335,6 +1335,8 @@ def bgimg_apbgd(bgdinfo, model_norms, bgdapweights, refspec,
     xspec.AllData.ignore(ignore)
 
     for fpm in ('A', 'B'):
+        if refspec[fpm] == None:
+            continue
         output = pf.open(bgdinfo['bgdapfiles'][fpm])
 
         spec_num = 1 + refspec[fpm]
@@ -1444,7 +1446,8 @@ def bgimg_intbgd(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim
     xspec.AllData.ignore(ignore)
 
     for fpm in ('A', 'B'):
-
+        if refspec[fpm] == None:
+            continue
         intbgd_values = [0.] * 4  # Tally intbgd counts / px on each detector
 
         # Use the detector with greatest area as reference for calculations
@@ -1676,7 +1679,8 @@ def bgimg_intn(presets, refspec, bgdinfo, model_norms, bgddetweights, bgddetim,
     xspec.AllData.ignore(ignore)
 
     for fpm in ('A', 'B'):
-
+        if refspec[fpm] == None:
+            continue
         intbgd_values = [0.] * 4  # Tally intbgd counts / px on each detector
 
         # Use the detector with greatest area as reference for calculations

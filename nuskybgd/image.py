@@ -132,7 +132,7 @@ def get_aperture_image(detector):
     from . import env
     import os
 
-    auxildir = os.environ[env._AUX_ENV]
+    auxildir = env.auxildir #os.environ[env._AUX_ENV]
     if detector not in ('A', 'B'):
         print('Detector must have value A or B.')
         return False

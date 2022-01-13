@@ -248,7 +248,8 @@ Sample bgdinfo.json:
         if arg[0] in keywords:
             keywords[arg[0]] = arg[1]
 
-    auxildir = env._AUX_DIR
+#    auxildir = env._AUX_DIR
+    auxildir = env.auxildir
 
     # Input params
     bgdinfo = numodel.check_bgdinfofile(args[1])
@@ -364,7 +365,7 @@ def spec(args=[]):
         if arg[0] in keywords:
             keywords[arg[0]] = arg[1]
 
-    auxildir = env._AUX_DIR
+    auxildir = env.auxildir
 
     # Input params
     bgdinfo = numodel.check_bgdinfofile(args[1])
@@ -515,7 +516,7 @@ def image(args=[]):
         if arg[0] in keywords:
             keywords[arg[0]] = arg[1]
 
-    auxildir = env._AUX_DIR
+    auxildir = env.auxildir
 
     # Input params
     bgdinfo = numodel.check_bgdinfofile(args[1])
@@ -558,6 +559,7 @@ def image(args=[]):
     bgdapimwt = bgdapweights['sum']
 
     refspec = numodel.get_refspec(instrlist)
+    
     #####################################################
 
     emin = float(args[3])
@@ -891,7 +893,7 @@ def projbgd(args=[]):
         print('No valid detector number specified.')
         return 1
 
-    auxildir = env._AUX_DIR
+    auxildir = env.auxildir
 
     if opts['out'][0] != '!':
         halt = False
