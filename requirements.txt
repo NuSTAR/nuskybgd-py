@@ -1,6 +1,10 @@
 astropy
 pyregion
 <<<<<<< refs/remotes/NuSTAR/main
+<<<<<<< refs/remotes/NuSTAR/main
 scipy
 =======
 >>>>>>> Now pip installable
+=======
+scipy
+>>>>>>> Update links to auxildir

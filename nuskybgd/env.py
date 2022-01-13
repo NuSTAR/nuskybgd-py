@@ -28,6 +28,7 @@ _CALDB = None
 # Directory housing env.py
 curdir = os.path.dirname(__file__)
 <<<<<<< refs/remotes/NuSTAR/main
+<<<<<<< refs/remotes/NuSTAR/main
 auxildir = os.path.abspath(os.path.join(curdir, '../auxil'))
 
 
@@ -39,6 +40,14 @@ auxdir = os.path.abspath(os.path.join(curdir, '../auxil'))
 
 # 
 >>>>>>> Updated environement checks
+=======
+auxildir = os.path.abspath(os.path.join(curdir, '../auxil'))
+
+
+#export CALDBCONFIG=$CALDB/software/tools/caldb.config
+
+### NEED TO PROPAGAGE THE AUXDIR STUFF ABOVE TO WHERE IT'S USED!!
+>>>>>>> Update links to auxildir
 
 
 def check():
