@@ -86,7 +86,7 @@ def check():
 
     HAS_XSPEC = False
     try:
-        import pyXspec
+        import xspec
         HAS_XSPEC = True
     except ImportError:
         pass
