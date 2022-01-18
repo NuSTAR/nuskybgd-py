@@ -102,6 +102,17 @@ def check():
     else:
         env._CALDB = cal
 
+    HAS_XSPEC = False
+    try:
+        import pyXspec
+        HAS_XSPEC = True
+    except ImportError:
+        pass
+
+    if HAS_XSPEC is False:
+        print('pyXspec is not importable')
+        fail=True
+
     return not fail
 
 

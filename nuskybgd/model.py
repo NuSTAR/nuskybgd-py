@@ -2,7 +2,14 @@
 # This file is part of nuskybgd released under MIT License.
 # See LICENSE file for full details.
 
-import xspec
+
+HAS_XSPEC = False
+try:
+    import xspec
+    HAS_XSPEC = True
+except ImportError:
+    pass
+
 import os
 import json
 import numpy as np
