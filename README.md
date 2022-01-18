@@ -1,4 +1,4 @@
-[![Documentation Status](https://readthedocs.org/projects/nuskybgd-py/badge/?version=latest)](https://nuskybgd-py.readthedocs.io/en/latest/?badge=latest)
+Read the Docus: [![Documentation Status](https://readthedocs.org/projects/nuskybgd-py/badge/?version=latest)](https://nuskybgd-py.readthedocs.io/en/latest/?badge=latest)
 
 # Requirements
 
