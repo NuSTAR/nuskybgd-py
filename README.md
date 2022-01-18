@@ -1,3 +1,5 @@
+[![Documentation Status](https://readthedocs.org/projects/nuskybgd-py/badge/?version=latest)](https://nuskybgd-py.readthedocs.io/en/latest/?badge=latest)
+
 # Requirements
 
 - Nuskybgd interacts with Xspec via PyXspec; you must install HEASOFT from source to use PyXspec.
