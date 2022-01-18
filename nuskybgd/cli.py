@@ -5,6 +5,14 @@
 from . import env
 from .util import docformat
 
+# Workaround for readthedocs
+HAS_XSPEC = False
+try:
+    import xspec
+    HAS_XSPEC = True
+except ImportError:
+    pass
+
 
 def run(args=[]):
     """
@@ -174,7 +182,7 @@ def fit(args=[]):
 
     import os
     import json
-    import xspec
+#    import xspec
     import numpy as np
     import astropy.io.fits as pf
     from . import util
@@ -346,7 +354,7 @@ def spec(args=[]):
 
     import os
     import json
-    import xspec
+#    import xspec
     import numpy as np
     import astropy.io.fits as pf
     from . import util
@@ -494,7 +502,7 @@ def image(args=[]):
     """
     import os
     import json
-    import xspec
+#    import xspec
     import numpy as np
     import astropy.io.fits as pf
     from . import util
@@ -616,7 +624,7 @@ def simplify(args=[]):
     if env.block() is True:
         return 1
 
-    import xspec
+#    import xspec
     import json
     import os
     from . import model as numodel

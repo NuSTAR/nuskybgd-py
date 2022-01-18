@@ -13,7 +13,13 @@ env._PASSCHECK = env.check()
 Should be run first.
 """
 
-import xspec
+
+HAS_XSPEC = False
+try:
+    import xspec
+    HAS_XSPEC = True
+except ImportError:
+    pass
 # !!Load xspec before astropy!!
 # When testing on Mac, using xspec from latest version of HEASOFT (6.26.1) and
 # astropy (3.2.1), if astropy is imported first, an error is thrown when
@@ -30,3 +36,9 @@ importlib.import_module('%s.rmf' % __name__)
 importlib.import_module('%s.env' % __name__)
 
 env._PASSCHECK = env.check()
+
+
+try:
+    from .version import version as __version__
+except ImportError:
+    __version__ = ''

@@ -3,8 +3,14 @@ pyregion
 <<<<<<< refs/remotes/NuSTAR/main
 <<<<<<< refs/remotes/NuSTAR/main
 scipy
+<<<<<<< refs/remotes/NuSTAR/main
 =======
 >>>>>>> Now pip installable
 =======
 scipy
 >>>>>>> Update links to auxildir
+=======
+sphinx
+sphinx_rtd_theme==0.4.3
+
+>>>>>>> Readthedocs init
