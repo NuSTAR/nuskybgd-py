@@ -73,6 +73,11 @@ class CalDB:
         return self.getcaldbfile(
             self.telescope, instrument, 'DETABS', detnam, obsutctime)
 
+    def getBEABS(self, instrument, obsutctime):
+        """Call ``getcaldbfile()`` with ``cnam='BEABSPAR'``."""
+        return self.getcaldbfile(
+            self.telescope, instrument, 'BEABSPAR', None, obsutctime)
+    
     def getGRPRMF(self, instrument, detnam, obsutctime):
         """Call ``getcaldbfile()`` with ``cnam='GRPRMF'``."""
         return self.getcaldbfile(
