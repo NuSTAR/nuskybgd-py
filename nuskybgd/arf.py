@@ -48,7 +48,7 @@ def make_arf(filename, weights):
     
     # Mock up a unit ARF:
     arf['SPECRESP'] = beabs['ATT']
-    out_arf = f"{filename.split('.')[0]}_nodetabs.arf"
+    out_arf = f"{filename.split('.')[0]}_nsb_nodetabs.arf"
     arf_hdu.writeto(out_arf, overwrite=True)
 
     detabs_hdu = fits.open(detabs_file)
@@ -64,7 +64,7 @@ def make_arf(filename, weights):
     detabs_hdu.close()
     arf['SPECRESP'] *= arfabs
 
-    out_arf = f"{filename.split('.')[0]}.arf"
+    out_arf = f"{filename.split('.')[0]}_nsb.arf"
 
     arf_hdu.writeto(out_arf, overwrite=True)
     arf_hdu.close()
