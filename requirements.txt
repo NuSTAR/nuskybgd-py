@@ -1,5 +1,8 @@
 astropy
-pyregion
+matplotlib
+jupyterlab
 scipy
 sphinx
-sphinx_rtd_theme==0.4.3
+sphinx_rtd_theme
+pyregion
+extension_helpers
