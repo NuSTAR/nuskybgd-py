@@ -286,6 +286,7 @@ Sample bgdinfo.json:
     bgdapimwt = bgdapweights['sum']
 
     refspec = numodel.get_refspec(instrlist)
+
     #####################################################
 
     # Interact with Xspec
@@ -294,7 +295,7 @@ Sample bgdinfo.json:
     # The model numbers below (they will become source number in Xspec) are
     # arbitrary but the same ones must be used in subsequent processes that
     # will load this Xspec save file.
-    numodel.applymodel_apbgd(presets, refspec, bgdapimwt, 2)
+    numodel.applymodel_apbgd(presets, refspec, bgdapimwt,bgddetweights, 2)
     numodel.applymodel_intbgd(presets, refspec, bgddetimsum, 3,
         fix_line_ratios=bgdinfo['intbgd_fix_line_ratios'])
     numodel.applymodel_fcxb(refspec, bgddetimsum, 4)
@@ -452,7 +453,7 @@ def spec(args=[]):
     numodel.addspec(src_specfiles, fresh=False)
     ##########
     # These models need to have the same number as in fit() or it won't work!
-    numodel.applymodel_apbgd(presets, refspec, bgdapimwt, 2, src_number=src_number)
+    numodel.applymodel_apbgd(presets, refspec, bgdapimwt,bgddetweights, 2, src_number=src_number)
     numodel.applymodel_intbgd(presets, refspec, bgddetimsum, 3, src_number=src_number,
                               fix_line_ratios=bgdinfo['intbgd_fix_line_ratios'])
     numodel.applymodel_fcxb(refspec, bgddetimsum, 4, src_number=src_number)

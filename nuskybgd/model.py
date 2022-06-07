@@ -15,7 +15,7 @@ import json
 import numpy as np
 from . import util
 from . import env
-
+from . import arf
 
 class ModelSource():
     def __init__(self, xspec_model):
@@ -493,8 +493,8 @@ def addspec(specfiles, fresh=True):
         raise Exception('Not all requested spectra loaded, cannot proceed!')
 
 
-def applymodel_apbgd(presets, refspec, bgdapimwt, model_num, src_number=None,
-                     model_name='apbgd'):
+def applymodel_apbgd(presets, refspec, bgdapimwt, bgddetweights, 
+                    model_num, src_number=None,model_name='apbgd'):
     """
     Xspec model component 2: apbgd (aperture image background)
 
@@ -555,8 +555,10 @@ def applymodel_apbgd(presets, refspec, bgdapimwt, model_num, src_number=None,
     for i in range(spec_count):
         s = xspec.AllData(i + spec_start)
         s.multiresponse[model_num - 1] = s.response.rmf
-        s.multiresponse[model_num - 1].arf = '%s/be.arf' % env.auxildir
-
+#        s.multiresponse[model_num - 1].arf = '%s/be.arf' % env.auxildir
+        arf_file = arf.make_arf(s.fileName, bgddetweights['fraction'][i])
+        s.multiresponse[model_num - 1].arf = arf_file
+    
     if model_num not in xspec.AllModels.sources:  # Adding new, or updating?
         xspec.Model('cutoffpl', model_name, model_num)
     elif model_name != xspec.AllModels.sources[model_num]:

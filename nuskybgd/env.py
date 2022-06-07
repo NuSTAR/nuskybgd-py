@@ -10,6 +10,7 @@ _AUX_ENV = 'NUSKYBGD_AUXIL'
 _AUX_DIR = ''
 _AUX_FILES = [
     'be.arf',
+    'template.arf',
     'diag.rmf',
     'fcxbA.arf',
     'fcxbB.arf',
@@ -108,3 +109,5 @@ def block():
         return True
     else:
         return False
+
+
